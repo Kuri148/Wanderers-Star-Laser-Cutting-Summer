@@ -1,3 +1,4 @@
+// Base polygon (one arm of the plus, A-F from sketch)
 module BaseArm() {
     points = [
         [0, 0],      // A
@@ -10,6 +11,7 @@ module BaseArm() {
     polygon(points);
 }
 
+// Full plus shape: rotate the base arm 0/90/180/270 and union
 module PlusShape() {
     union() {
         for (a = [0, 90, 180, 270])
@@ -53,7 +55,7 @@ difference()
     intersection()
     {
         offset(delta = -12) GoldenTriangle();
-        render()translate([0,100,0])scale(20)rotate(35)PatternArray();
+        render()translate([0,100,0])scale(20)PatternArray();
 
     }
     translate([(-base/2)+holeGap*cos(36), holeGap*sin(36)])circle(r = 2, $fn = 100);
