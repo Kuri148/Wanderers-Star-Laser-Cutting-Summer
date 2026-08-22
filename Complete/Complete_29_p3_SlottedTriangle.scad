@@ -66,11 +66,6 @@ module PatternArray()
         }
     }
 }
-<<<<<<< HEAD:Templates/AFCE_Template_Welded.scad
-PatternArray();
-color("green")afce
-();
-=======
 
 //----------------------------
 
@@ -102,4 +97,3 @@ difference()
     translate([0, height - holeGap * 2 ])circle(r = 2, $fn = 100);
     polygon(points = [[-10, 7], [10,7], [10, 11], [-10,11]]);
 }
->>>>>>> 0bb03399b265eb86bb348b595932c6d9eaddcb26:Complete/Complete_29_p3_SlottedTriangle.scad
