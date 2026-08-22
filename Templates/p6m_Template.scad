@@ -1,3 +1,5 @@
+// p6m — *632
+
 // ----------------------------------------------------------------------
 // Weld amount. Each assembly step grows the 2D shape by EPS, unions, then
 // shrinks back by EPS — fusing the hairline seams between assembled pieces
@@ -22,30 +24,13 @@ module reflect_line(theta, p) {
 
 module shapesToCut()
 {
-    // Polygon 1, closed (4 points)
+    // placeholder test-cut — asymmetric arrow so rotations/mirrors are
+    // visually distinguishable; swap in the real motif
     polygon(points = [
-        [0.62277, 0.43301],
-        [0.36754, 0.32933],
-        [0.44023, 0.39718],
-        [0.48385, 0.40202]
-    ]);
-    // Polygon 2, closed (3 points)
-    polygon(points = [
-        [0.25, 0.24533],
-        [0.38106, 0.22],
-        [0.25, 0.14434]
-    ]);
-    // Polygon 3, closed (3 points)
-    polygon(points = [
-        [0.48335, 0.27906],
-        [0.35785, 0.29541],
-        [0.41426, 0.23917]
-    ]);
-    // Polygon 4, closed (3 points)
-    polygon(points = [
-        [0.30292, 0.37456],
-        [0.29646, 0.32287],
-        [0.35623, 0.37941]
+        [0.28, 0.40],
+        [0.45, 0.42],
+        [0.28, 0.30],
+        [0.33, 0.35]
     ]);
 }
 
@@ -92,5 +77,22 @@ module parallelogram()
     }
 }
 
-parallelogram();
-color("green")fundamentalDomain();
+gridStart = -5;
+gridEnd = -gridStart;
+
+module PatternArray()
+{
+    weld()
+    {
+        for (y = [gridStart:1:gridEnd])
+        {
+            for (x = [gridStart:1:gridEnd])
+            {
+                translate([x, y*(sqrt(3)/2), 0]) parallelogram();
+            }
+        }
+    }
+}
+
+PatternArray();
+color("green")cutFundamental();
