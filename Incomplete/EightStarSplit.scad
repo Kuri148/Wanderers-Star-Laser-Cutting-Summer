@@ -58,7 +58,7 @@ difference()
     intersection()
     {
         offset(delta = -12) GoldenTriangle();
-        render() translate([0,100,0]) scale(25) translate([0, .5 * tan(60)-tan(30), 0]) scale(1.31s)TriangleArray();
+        render() translate([0,100,0]) scale(25) translate([0, .5 * tan(60)-tan(30), 0]) scale(1.31)TriangleArray();
     }
     translate([(-base/2)+holeGap*cos(36), holeGap*sin(36)])circle(r = 2, $fn = 100);
     translate([(base/2)-holeGap*cos(36), holeGap*sin(36)])circle(r = 2, $fn = 100);
