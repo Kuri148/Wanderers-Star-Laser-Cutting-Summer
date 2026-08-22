@@ -1,5 +1,5 @@
-fieldStart = -3;
-fieldEnd = 3;
+fieldStart = -4;
+fieldEnd = 4;
 $fn=32;
 
 module pointer()
@@ -70,7 +70,7 @@ difference()
     intersection()
     {
         offset(delta = -12) GoldenTriangle();
-        render() translate([0,100,0]) scale(40) PatternArray();
+        render() translate([0,75,0]) scale(30) PatternArray();
     }
     translate([(-base/2)+holeGap*cos(36), holeGap*sin(36)])circle(r = 2, $fn = 100);
     translate([(base/2)-holeGap*cos(36), holeGap*sin(36)])circle(r = 2, $fn = 100);
