@@ -3,10 +3,11 @@
 // tileType: "oblique" | "square" | "rhombic" | "rectangular" | "hexagonal"
 tileType = "hexagonal";
 
-x = 1;          // oblique/square/rectangular: v1 length. rhombic: cos(angle) between v1,v2
-y = 0.6;        // rectangular: v2 length
-shift = 0.2;    // oblique: v2's horizontal (slant) component
-sideLength = 1; // hexagonal: lattice side length
+x = 1;            // oblique/square/rectangular: v1 length
+y = 0.6;          // rectangular: v2 length
+shift = 0.2;      // oblique: v2's horizontal (slant) component
+sideLength = 1;   // hexagonal: lattice side length
+rhombicCos = 0.5; // rhombic: cos(angle) between v1,v2 -- must be strictly between -1 and 1
 
 epsilon = 0.0001;
 
@@ -23,7 +24,7 @@ function v1() =
 function v2() =
     tileType == "square"      ? [0, x] :
     tileType == "rectangular" ? [0, y] :
-    tileType == "rhombic"     ? [x, sin(acos(x))] :
+    tileType == "rhombic"     ? [rhombicCos, sin(acos(rhombicCos))] :
     tileType == "hexagonal"   ? [sideLength/2, sideLength*tan(60)/2] :
     [shift, y]; // oblique
 
