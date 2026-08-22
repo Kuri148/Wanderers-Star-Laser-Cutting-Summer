@@ -49,8 +49,11 @@ module FundamentalRemains()
     difference(){FundamentalDomain();FundamentalCut();}
 }
 
+function center() = (v1() + v2()) / 2;
+
 module PatternArray()
 {
+    translate(-center())
     for (i = [-10:1:10])
         for (j = [-10:1:10])
             translate(i*v1() + j*v2())
