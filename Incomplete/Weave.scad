@@ -6,7 +6,7 @@ tilingRowEnd   = 5;
 
 // ----- Controls -----
 safeScale = 1;        // Use 1 for normal OpenSCAD units, 200 for large DXF/mm export
-extension = 1 / 15 ;
+extension = 1 / 18 ;
 tileSize  = 0.94;     // spacing that works for this pattern
 
 // ----- Core points -----
@@ -83,7 +83,7 @@ module GoldenTriangle()
 difference()
 {
     GoldenTriangle();
-    difference()
+    intersection()
     {
         offset(delta = -12) GoldenTriangle();
         render() translate([0,100,0]) scale(30) PatternArray();

@@ -58,4 +58,4 @@ module weld(eps = 0.001) {
     offset(delta = -eps) offset(delta = eps) children();
 }
 weld()PatternArray();
-color("green")CompiledTile();
+color("green")FundamentalRemains();

@@ -5,9 +5,9 @@ rhombusColArrayStart = -5;
 rhombusColArrayEnd = 5;
 
 diamondA = [0, 0];
-diamondB = [.5, .5 * tan(22.5)];
+diamondB = [.5, .4 * tan(22.5)];
 diamondC = [1, 0]; 
-diamondD = [.5, -.5 * tan(22.5 )];
+diamondD = [.5, -.4 * tan(22.5 )];
 
 module RhombusSingle()
 {
@@ -56,7 +56,7 @@ difference()
     intersection()
     {
         offset(delta = -12) GoldenTriangle();
-        render() translate([0,100,0]) scale(6) RhombusArray();
+        render() translate([0,100,0]) scale(6) scale(2)RhombusArray();
     }
     translate([(-base/2)+holeGap*cos(36), holeGap*sin(36)])circle(r = 2, $fn = 100);
     translate([(base/2)-holeGap*cos(36), holeGap*sin(36)])circle(r = 2, $fn = 100);

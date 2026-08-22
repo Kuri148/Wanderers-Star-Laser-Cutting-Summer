@@ -1,7 +1,7 @@
 // p1 — o
 
 // tileType: "oblique" | "square" | "rhombic" | "rectangular" | "hexagonal"
-tileType = "oblique";
+tileType = "hexagonal";
 
 x = 1;          // oblique/square/rectangular: v1 length. rhombic: cos(angle) between v1,v2
 y = 0.6;        // rectangular: v2 length
@@ -54,7 +54,7 @@ module PatternArray()
     for (i = [-10:1:10])
         for (j = [-10:1:10])
             translate(i*v1() + j*v2())
-                weld() FundamentalRemains();
+                weld() scale(.9)FundamentalRemains();
 }
 
 PatternArray();
