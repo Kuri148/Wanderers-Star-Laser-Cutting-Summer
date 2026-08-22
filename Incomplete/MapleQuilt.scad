@@ -74,18 +74,33 @@ module rounded_rect_by_hull(w, h, r, $fn=64)
 }
 
 
-union()
+//----------------------------
+
+base = 150;
+phi = (1 + sqrt(5)) / 2;
+holeGap = 8;
+
+leftBase = [-base/2, 0];
+rightBase = [base/2, 0];
+side = phi * base;
+height = sqrt(side*side - (base/2)*(base/2));
+apex = [0, height];
+
+module GoldenTriangle()
 {
-    intersection()
-    {
-        PatternArray();
-        rounded_rect_by_hull(200, 150, 30, $fn=64);
-        
-    }
+    polygon(points = [leftBase, rightBase, apex]);
+}
+
+difference()
+{
+    GoldenTriangle();
     difference()
     {
-        rounded_rect_by_hull(210, 160, 30, $fn=64);
-        rounded_rect_by_hull(205, 155, 30, $fn=64);
+        offset(delta = -12) GoldenTriangle();
+        render() translate([0,100,0]) PatternArray();
     }
-        
+    translate([(-base/2)+holeGap*cos(36), holeGap*sin(36)])circle(r = 2, $fn = 100);
+    translate([(base/2)-holeGap*cos(36), holeGap*sin(36)])circle(r = 2, $fn = 100);
+    translate([0, height - holeGap * 2 ])circle(r = 2, $fn = 100);
+    polygon(points = [[-10, 7], [10,7], [10, 11], [-10,11]]);
 }
