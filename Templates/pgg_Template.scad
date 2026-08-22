@@ -11,7 +11,7 @@ module weld() {
 
 module FundamentalDomain()
 {
-    polygon(points = [[-rectX,0],[0,rectY],[rectX,0]]);
+    polygon(points = [[-rectX/2,0],[0,rectY/2],[rectX/2,0]]);
 }
 
 module FundamentalCut()
@@ -19,7 +19,7 @@ module FundamentalCut()
     // placeholder test-cut — asymmetric arrow so rotations/glides are
     // visually distinguishable; swap in the real motif
     polygon(points = [
-        [-0.1, 0.05],
+        [-0.05, 0.05],
         [0.15, 0.15],
         [-0.1, 0.25],
         [-0.03, 0.15]
@@ -36,9 +36,12 @@ module CompiledTile()
     union()
     {
         weld() FundamentalRemains();
-        weld() translate([rectX,-rectY,0]) mirror([1,0,0]) FundamentalRemains();
-        weld() translate([-rectX,-rectY,0]) mirror([-1,0,0]) FundamentalRemains();
-        weld() translate([-1,0,0]) mirror([1,0,0]) rotate(180) FundamentalRemains();
+        color("blue")weld()rotate(180)FundamentalRemains();
+        
+        color("green")weld()translate([-rectX/2,-rectY/2,0])mirror([1,0,0])FundamentalRemains();
+        
+        color("red")weld()translate([rectX/2,rectY/2,0])mirror([1,0,0])rotate(180)FundamentalRemains();
+        
     }
 }
 
