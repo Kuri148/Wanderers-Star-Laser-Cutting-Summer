@@ -34,3 +34,4 @@ module patternArray() {
 }
 
 patternArray();
+color("green")fundamentalRemains();
