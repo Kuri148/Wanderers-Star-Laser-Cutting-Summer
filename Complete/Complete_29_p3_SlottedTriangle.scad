@@ -1,3 +1,5 @@
+// p3 — 333
+
 // Base shape AFCE
 A = [-0.25, sqrt(3)/4];
 B = [0.75, sqrt(3)/4];
@@ -64,6 +66,40 @@ module PatternArray()
         }
     }
 }
+<<<<<<< HEAD:Templates/AFCE_Template_Welded.scad
 PatternArray();
 color("green")afce
 ();
+=======
+
+//----------------------------
+
+base = 150;
+phi = (1 + sqrt(5)) / 2;
+holeGap = 8;
+
+leftBase = [-base/2, 0];
+rightBase = [base/2, 0];
+side = phi * base;
+height = sqrt(side*side - (base/2)*(base/2));
+apex = [0, height];
+
+module GoldenTriangle()
+{
+    polygon(points = [leftBase, rightBase, apex]);
+}
+
+difference()
+{
+    GoldenTriangle();
+    difference()
+    {
+        offset(delta = -12) GoldenTriangle();
+        render() translate([0,100,0]) scale(30) PatternArray();
+    }
+    translate([(-base/2)+holeGap*cos(36), holeGap*sin(36)])circle(r = 2, $fn = 100);
+    translate([(base/2)-holeGap*cos(36), holeGap*sin(36)])circle(r = 2, $fn = 100);
+    translate([0, height - holeGap * 2 ])circle(r = 2, $fn = 100);
+    polygon(points = [[-10, 7], [10,7], [10, 11], [-10,11]]);
+}
+>>>>>>> 0bb03399b265eb86bb348b595932c6d9eaddcb26:Complete/Complete_29_p3_SlottedTriangle.scad
