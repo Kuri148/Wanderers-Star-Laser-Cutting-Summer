@@ -17,7 +17,7 @@ module FundamentalDomain() {
 module FundamentalCut() {
     translate([.25,0,0]) circle(.1);
     translate([0,.25,0]) circle(.1);
-    polygon(points = [[0,.15],[0,.35],[.25,.25]]);
+    polygon(points = [[0,.15],[0,.35],[.2,.25]]);
 }
 
 module FundamentalRemains()
