@@ -1,0 +1,1495 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>OpenSCAD Wallpaper Pattern Editor</title>
+<style>
+  :root {
+    --bg: #1e2229;
+    --panel: #272c35;
+    --panel-light: #313845;
+    --accent: #f9a825;
+    --accent-dim: #c17e00;
+    --text: #e6e9ef;
+    --text-dim: #9aa3b2;
+    --grid: #3a414d;
+    --axis: #5a6473;
+    --line: #4fc3f7;
+    --point: #f9a825;
+    --closed: #66bb6a;
+    --bezier: #ba68c8;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    overflow: hidden;
+  }
+  header {
+    padding: 12px 20px;
+    flex: 0 0 auto;
+    position: relative;
+    z-index: 60;
+    background: var(--panel);
+    border-bottom: 1px solid var(--grid);
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    flex-wrap: wrap;
+  }
+  header h1 {
+    font-size: 16px;
+    margin: 0;
+    font-weight: 600;
+    color: var(--accent);
+    white-space: nowrap;
+  }
+  .controls {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+  select {
+    background: var(--panel-light);
+    color: var(--text);
+    border: 1px solid var(--grid);
+    padding: 7px 10px;
+    border-radius: 6px;
+    font-size: 13px;
+    cursor: pointer;
+  }
+  select:hover { background: var(--grid); }
+  #groupSelect {
+    font-weight: 600;
+    border-color: var(--accent-dim);
+  }
+  button {
+    background: var(--panel-light);
+    color: var(--text);
+    border: 1px solid var(--grid);
+    padding: 7px 12px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 13px;
+    transition: all 0.15s;
+  }
+  button:hover { background: var(--grid); }
+  button:active { transform: translateY(1px); }
+  button.primary {
+    background: var(--accent);
+    color: #1a1a1a;
+    border-color: var(--accent);
+    font-weight: 600;
+  }
+  button.primary:hover { background: var(--accent-dim); }
+  button.danger:hover { background: #b3493f; border-color: #b3493f; }
+  .toggle {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    background: var(--panel-light);
+    padding: 6px 12px;
+    border-radius: 6px;
+    border: 1px solid var(--grid);
+    cursor: pointer;
+    user-select: none;
+    font-size: 13px;
+  }
+  .toggle input { cursor: pointer; accent-color: var(--bezier); }
+  .mode-switch {
+    display: inline-flex;
+    border: 1px solid var(--grid);
+    border-radius: 6px;
+    overflow: hidden;
+  }
+  .mode-switch .mode {
+    border: none;
+    border-radius: 0;
+    background: var(--panel-light);
+    padding: 7px 14px;
+  }
+  .mode-switch .mode + .mode { border-left: 1px solid var(--grid); }
+  .mode-switch .mode.active {
+    background: var(--accent);
+    color: #1a1a1a;
+    font-weight: 600;
+  }
+  main {
+    flex: 1 1 auto;
+    display: flex;
+    min-height: 0;
+    position: relative;
+    z-index: 1;
+  }
+  .canvas-wrap {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+    min-width: 0;
+    position: relative;
+  }
+  #canvas {
+    background: var(--panel);
+    border-radius: 8px;
+    cursor: crosshair;
+    box-shadow: 0 4px 24px rgba(0,0,0,0.3);
+    touch-action: none;
+  }
+  .preview-panel {
+    position: absolute;
+    top: 24px;
+    right: 24px;
+    width: 260px;
+    background: rgba(30,34,41,0.92);
+    border: 1px solid var(--grid);
+    border-radius: 8px;
+    box-shadow: 0 4px 18px rgba(0,0,0,0.4);
+    overflow: hidden;
+    backdrop-filter: blur(2px);
+  }
+  .preview-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 6px 10px;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--accent);
+    border-bottom: 1px solid var(--grid);
+  }
+  .preview-head button {
+    background: transparent;
+    border: none;
+    color: var(--text-dim);
+    font-size: 16px;
+    line-height: 1;
+    padding: 0 4px;
+    cursor: pointer;
+  }
+  .preview-head button:hover { color: var(--text); background: transparent; }
+  #previewCanvas {
+    display: block;
+    width: 260px;
+    height: 260px;
+    background: #16181d;
+  }
+  .preview-foot {
+    padding: 5px 10px;
+    font-size: 10.5px;
+    color: var(--text-dim);
+    border-top: 1px solid var(--grid);
+    font-family: "SF Mono", Menlo, Consolas, monospace;
+  }
+  .preview-panel.collapsed #previewCanvas,
+  .preview-panel.collapsed .preview-foot { display: none; }
+  .coord-readout {
+    position: absolute;
+    top: 24px;
+    left: 24px;
+    background: rgba(0,0,0,0.55);
+    padding: 4px 10px;
+    border-radius: 5px;
+    font-family: "SF Mono", Menlo, Consolas, monospace;
+    font-size: 12px;
+    color: var(--text-dim);
+    pointer-events: none;
+  }
+  .sidebar {
+    width: 400px;
+    background: var(--panel);
+    border-left: 1px solid var(--grid);
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+  }
+  .sidebar-head {
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--grid);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .sidebar-head h2 {
+    font-size: 14px;
+    margin: 0;
+    font-weight: 600;
+  }
+  textarea {
+    flex: 1;
+    background: #1a1d23;
+    color: #d4d4d4;
+    border: none;
+    padding: 14px 16px;
+    font-family: "SF Mono", Menlo, Consolas, monospace;
+    font-size: 12.5px;
+    line-height: 1.6;
+    resize: none;
+    outline: none;
+    white-space: pre;
+    overflow: auto;
+  }
+  .status {
+    padding: 9px 16px;
+    font-size: 12px;
+    color: var(--text-dim);
+    border-top: 1px solid var(--grid);
+    background: var(--panel-light);
+  }
+  .status b { color: var(--accent); }
+  .hint {
+    font-size: 11.5px;
+    color: var(--text-dim);
+    padding: 0 20px;
+    line-height: 1.5;
+  }
+  .seg-control {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12.5px;
+    color: var(--text-dim);
+  }
+  .seg-control input {
+    width: 50px;
+    background: var(--panel-light);
+    border: 1px solid var(--grid);
+    color: var(--text);
+    border-radius: 4px;
+    padding: 4px 6px;
+    font-size: 12px;
+  }
+  .copied {
+    color: var(--closed) !important;
+    font-weight: 600;
+  }
+  kbd {
+    background: var(--panel-light);
+    border: 1px solid var(--grid);
+    border-radius: 4px;
+    padding: 1px 6px;
+    font-family: monospace;
+    font-size: 11px;
+  }
+</style>
+</head>
+<body>
+<header>
+  <h1>⬡ OpenSCAD Wallpaper Pattern Editor</h1>
+  <div class="controls">
+    <select id="groupSelect" title="Wallpaper group -- domain shape and symmetry come from that group's Template.scad"></select>
+    <div class="mode-switch" role="group" aria-label="Tool mode">
+      <button id="drawModeBtn" class="mode active">✏️ Draw</button>
+      <button id="editModeBtn" class="mode">✋ Edit points</button>
+    </div>
+    <label class="toggle">
+      <input type="checkbox" id="bezierToggle">
+      Bézier curve tool
+    </label>
+    <label class="toggle" title="Snap points to the domain corners and to points you've already placed">
+      <input type="checkbox" id="snapToggle" checked>
+      Snap to points &amp; corners
+    </label>
+    <div class="seg-control" title="Number of straight segments used to approximate each Bézier curve">
+      curve segments
+      <input type="number" id="segCount" value="12" min="2" max="64">
+    </div>
+    <button id="undoBtn">Undo point</button>
+    <button id="closeBtn">Close loop</button>
+    <button id="newBtn">New polygon</button>
+    <button id="clearBtn" class="danger">Clear all</button>
+  </div>
+</header>
+<main>
+  <div class="canvas-wrap">
+    <canvas id="canvas" width="640" height="640"></canvas>
+    <div class="coord-readout" id="readout">( –, – )</div>
+    <div class="preview-panel" id="previewPanel">
+      <div class="preview-head">
+        <span>Tiling preview</span>
+        <button id="previewToggle" title="Show / hide preview">–</button>
+      </div>
+      <canvas id="previewCanvas" width="260" height="260"></canvas>
+      <div class="preview-foot" id="previewFoot">cut → tile</div>
+    </div>
+  </div>
+  <div class="sidebar">
+    <div class="sidebar-head">
+      <h2>OpenSCAD output</h2>
+      <button id="copyBtn" class="primary">Copy</button>
+    </div>
+    <textarea id="output" readonly spellcheck="false"></textarea>
+    <div class="status" id="status">Click inside the domain to place your first point.</div>
+    <p class="hint">
+      Pick a wallpaper group above -- the drawable domain, symmetry preview, and vertex
+      labels are all rebuilt from that group's <code>Templates/*_Template.scad</code>
+      construction. Switching groups clears the canvas (coordinate systems differ per group).<br><br>
+      <b>Draw</b> mode: click to drop points inside the domain. Clicks outside snap to the
+      nearest boundary point. With <b>Snap</b> on, points lock onto the corners and any
+      existing point (a green ring shows the target). With <b>Bézier</b> on, click then drag
+      to curve a segment. <kbd>Close loop</kbd> finishes a shape.<br>
+      <b>Edit points</b> mode: hover a point or Bézier handle (cursor turns to a hand) and
+      drag it to a new spot. Anchors stay in the domain and snap to corners/points; the
+      output updates live.<br><br>
+      The output panel is just the drawn <code>polygon()</code> block(s) -- paste them
+      into that group's <code>FundamentalCut()</code> / <code>shapesToCut()</code>.
+    </p>
+  </div>
+</main>
+
+<script>
+(function () {
+  "use strict";
+
+  const canvas = document.getElementById("canvas");
+  const ctx = canvas.getContext("2d");
+  const output = document.getElementById("output");
+  const status = document.getElementById("status");
+  const readout = document.getElementById("readout");
+  const bezierToggle = document.getElementById("bezierToggle");
+  const snapToggle = document.getElementById("snapToggle");
+  const segInput = document.getElementById("segCount");
+  const drawModeBtn = document.getElementById("drawModeBtn");
+  const editModeBtn = document.getElementById("editModeBtn");
+  const previewPanel = document.getElementById("previewPanel");
+  const previewCanvas = document.getElementById("previewCanvas");
+  const pctx = previewCanvas.getContext("2d");
+  const previewToggle = document.getElementById("previewToggle");
+  const previewFoot = document.getElementById("previewFoot");
+  const groupSelect = document.getElementById("groupSelect");
+  let previewOpen = true;
+
+  let mode = "draw";              // "draw" | "edit"
+  let editTarget = null;          // { poly, point, kind: "anchor"|"handle" }
+
+  // ==========================================================================
+  // Wallpaper-group definitions
+  // ==========================================================================
+  // Each group mirrors the actual construction in its Templates/*_Template.scad
+  // file: `domain` is the exact fundamental-domain polygon a cut gets drawn
+  // into (same coordinates as that file's FundamentalDomain()/fundamentalDomain()
+  // /afce()/afe()), `instances` are the point-transform functions that compose
+  // one repeatable tile (matching CompiledTile()/parallelogram()/bounded_shape()),
+  // and `lattice` are the two translation vectors used to tile the plane
+  // (matching PatternArray()/tileThePlane()). Because these match the real
+  // template files, a polygon drawn here pastes directly into that group's
+  // FundamentalCut() / shapesToCut() without needing to rescale or reposition.
+
+  const SQRT3 = Math.sqrt(3);
+
+  function V(x, y) { return { x, y }; }
+  function rot(q, deg, pivot) {
+    pivot = pivot || V(0, 0);
+    const r = deg * Math.PI / 180, cs = Math.cos(r), sn = Math.sin(r);
+    const dx = q.x - pivot.x, dy = q.y - pivot.y;
+    return V(pivot.x + dx * cs - dy * sn, pivot.y + dx * sn + dy * cs);
+  }
+  // Reflect q across the line through the ORIGIN perpendicular to unit
+  // normal (nx,ny) -- matches OpenSCAD's mirror([nx,ny,0]).
+  function mirrorN(q, nx, ny) {
+    const d = q.x * nx + q.y * ny;
+    return V(q.x - 2 * d * nx, q.y - 2 * d * ny);
+  }
+  // Matches the reflect_line(theta, p) helper used in several templates:
+  // reflect q across the line through pivot p at angle theta (degrees).
+  function reflectLine(q, pivot, thetaDeg) {
+    const th = thetaDeg * Math.PI / 180, cs = Math.cos(th), sn = Math.sin(th);
+    const dx = q.x - pivot.x, dy = q.y - pivot.y;
+    const rx = dx * cs + dy * sn;
+    const ry = -dx * sn + dy * cs;
+    const bx = rx * cs - (-ry) * sn;
+    const by = rx * sn + (-ry) * cs;
+    return V(pivot.x + bx, pivot.y + by);
+  }
+
+  const GROUPS = {};
+
+  // --- p1 -- o (translation only) ------------------------------------------
+  (function () {
+    const v1 = V(1, 0), v2 = V(0.2, 0.6); // oblique defaults from p1_Template.scad
+    GROUPS.p1 = {
+      label: "p1 — o",
+      file: "p1_Template.scad",
+      domain: [V(0, 0), v1, V(v1.x + v2.x, v1.y + v2.y), v2],
+      instances: [q => q],
+      lattice: [v1, v2]
+    };
+  })();
+
+  // --- p2 -- 2222 -------------------------------------------------------
+  (function () {
+    const H = 0.25;
+    GROUPS.p2 = {
+      label: "p2 — 2222",
+      file: "p2_Template.scad",
+      domain: [V(-0.5, 0), V(0.5, 0), V(0, H)],
+      instances: [q => q, q => rot(q, 180)],
+      lattice: [V(0.5, H), V(0.5, -H)]
+    };
+  })();
+
+  // --- pm -- ** ----------------------------------------------------------
+  (function () {
+    const L = Math.PI, H = 3;
+    GROUPS.pm = {
+      label: "pm — **",
+      file: "pm_Template.scad",
+      domain: [V(-L, 0), V(-L, H), V(L, H), V(L, 0)],
+      instances: [q => q, q => V(q.x, -q.y)],
+      lattice: [V(2 * L, 0), V(0, 2 * H)]
+    };
+  })();
+
+  // --- pg -- ×× -----------------------------------------------------------
+  (function () {
+    const rectH = 0.5, rectL = 0.15;
+    GROUPS.pg = {
+      label: "pg — ××",
+      file: "pg_Template.scad",
+      domain: [V(0, rectH), V(rectL, rectH), V(rectL, -rectH), V(0, -rectH)],
+      instances: [q => q, q => V(q.x + rectL, -q.y)],
+      lattice: [V(2 * rectL, 0), V(0, 2 * rectH)]
+    };
+  })();
+
+  // --- cm -- *× -----------------------------------------------------------
+  (function () {
+    const W = 0.4;
+    GROUPS.cm = {
+      label: "cm — *×",
+      file: "cm_Template.scad",
+      domain: [V(W, 0), V(0, 0.5), V(0, -0.5)],
+      instances: [q => q, q => V(-q.x, q.y)],
+      lattice: [V(2 * W, 0), V(W, 0.5)]
+    };
+  })();
+
+  // --- pmm -- *2222 --------------------------------------------------------
+  (function () {
+    const L = 10, H = 15;
+    GROUPS.pmm = {
+      label: "pmm — *2222",
+      file: "pmm_Template.scad",
+      domain: [V(0, 0), V(L, 0), V(L, H), V(0, H)],
+      instances: [
+        q => q,
+        q => V(-q.x, q.y),
+        q => V(q.x, -q.y),
+        q => V(-q.x, -q.y)
+      ],
+      lattice: [V(2 * L, 0), V(0, 2 * H)]
+    };
+  })();
+
+  // --- pmg -- 22* --------------------------------------------------------
+  (function () {
+    const L = 0.5, H = 0.5;
+    GROUPS.pmg = {
+      label: "pmg — 22*",
+      file: "pmg_Template.scad",
+      domain: [V(0, 0), V(0, H), V(L, H), V(L, 0)],
+      instances: [
+        q => q,
+        q => V(-q.x, H - q.y),
+        q => V(-q.x, q.y - H),
+        q => V(q.x, -q.y)
+      ],
+      lattice: [V(2 * L, 0), V(0, 2 * H)]
+    };
+  })();
+
+  // --- pgg -- 22× --------------------------------------------------------
+  (function () {
+    const rectX = 1, rectY = 1;
+    GROUPS.pgg = {
+      label: "pgg — 22×",
+      file: "pgg_Template.scad",
+      domain: [V(-rectX / 2, 0), V(0, rectY / 2), V(rectX / 2, 0)],
+      instances: [
+        q => q,
+        q => V(-q.x, -q.y),
+        q => V(-q.x - rectX / 2, q.y - rectY / 2),
+        q => V(q.x + rectX / 2, rectY / 2 - q.y)
+      ],
+      lattice: [V(rectX, 0), V(0, rectY)]
+    };
+  })();
+
+  // --- cmm -- 2*22 -------------------------------------------------------
+  (function () {
+    const rectX = 0.6, rectY = Math.sin(Math.acos(0.6));
+    GROUPS.cmm = {
+      label: "cmm — 2*22",
+      file: "cmm_Template.scad",
+      domain: [V(0, 0), V(rectX, 0), V(0, rectY)],
+      instances: [
+        q => q,
+        q => V(-q.x, q.y),
+        q => V(-q.x, -q.y),
+        q => V(q.x, -q.y)
+      ],
+      lattice: [V(2 * rectX, 0), V(rectX, rectY)]
+    };
+  })();
+
+  // p3 and p3m1 both build their 6/12-fold rotation fan by rotating around
+  // TWO different pivots (F and E), which -- unlike every other group here --
+  // makes the copies genuinely overlap (coverage ratio 2, not 1). The real
+  // templates fix this by intersecting the whole union with a larger
+  // "abcd_boundary" quad before it's used as one tile; without that clip a
+  // preview would double-draw overlapping regions. Reproduce that boundary
+  // here so the preview clips exactly like the template does.
+  const ABCD_BOUNDARY = [
+    V(-0.25, SQRT3 / 4), V(0.75, SQRT3 / 4), V(0.25, -SQRT3 / 4), V(-0.75, -SQRT3 / 4)
+  ];
+
+  // --- p3 -- 333 -----------------------------------------------------------
+  (function () {
+    const A = V(-0.25, SQRT3 / 4), F = V(0.25, SQRT3 / 12),
+          C = V(0.25, -SQRT3 / 4), E = V(-0.25, -SQRT3 / 12);
+    const instances = [];
+    for (const pivot of [F, E]) {
+      for (const ang of [0, 120, 240]) {
+        instances.push(q => rot(q, ang, pivot));
+      }
+    }
+    GROUPS.p3 = {
+      label: "p3 — 333",
+      file: "p3_Template.scad",
+      domain: [A, F, C, E],
+      instances,
+      lattice: [V(1, 0), V(-0.5, SQRT3 / 2)],
+      clipBoundary: ABCD_BOUNDARY
+    };
+  })();
+
+  // --- p3m1 -- *333 --------------------------------------------------------
+  (function () {
+    const A = V(-0.25, SQRT3 / 4), F = V(0.25, SQRT3 / 12), E = V(-0.25, -SQRT3 / 12);
+    const nx = -0.5, ny = SQRT3 / 2; // unit normal of mirror([-1/4, sqrt(3)/4, 0])
+    const instances = [];
+    for (const pivot of [F, E]) {
+      for (const ang of [0, 120, 240]) {
+        instances.push(q => rot(q, ang, pivot));
+        instances.push(q => rot(mirrorN(q, nx, ny), ang, pivot));
+      }
+    }
+    GROUPS.p3m1 = {
+      label: "p3m1 — *333",
+      file: "p3m1_Template.scad",
+      domain: [A, F, E],
+      instances,
+      lattice: [V(1, 0), V(-0.5, SQRT3 / 2)],
+      clipBoundary: ABCD_BOUNDARY
+    };
+  })();
+
+  // --- p31m -- 3*3 ---------------------------------------------------------
+  (function () {
+    const A = V(0.25, SQRT3 / 12), B = V(-0.25, SQRT3 / 4), C = V(0.75, SQRT3 / 4);
+    const nx = SQRT3 / 2, ny = 0.5; // unit normal of mirror([sqrt(3)/2, 1/2, 0])
+    const instances = [];
+    for (const ang of [0, 120, 240]) instances.push(q => rot(q, ang, A));
+    for (const ang of [0, 120, 240]) instances.push(q => mirrorN(rot(q, ang, A), nx, ny));
+    GROUPS.p31m = {
+      label: "p31m — 3*3",
+      file: "p31m_Template.scad",
+      domain: [A, B, C],
+      instances,
+      lattice: [V(1, 0), V(0.5, SQRT3 / 2)]
+    };
+  })();
+
+  // --- p4 -- 442 -----------------------------------------------------------
+  (function () {
+    GROUPS.p4 = {
+      label: "p4 — 442",
+      file: "p4_Template.scad",
+      domain: [V(0, 0), V(0, 0.5), V(0.5, 0.5), V(0.5, 0)],
+      instances: [q => q, q => rot(q, 90), q => rot(q, 180), q => rot(q, 270)],
+      lattice: [V(1, 0), V(0, 1)]
+    };
+  })();
+
+  // --- p4m -- *442 ---------------------------------------------------------
+  (function () {
+    const instances = [];
+    for (const ang of [0, 90, 180, 270]) {
+      instances.push(q => rot(q, ang));
+      instances.push(q => rot(V(q.x, -q.y), ang));
+    }
+    GROUPS.p4m = {
+      label: "p4m — *442",
+      file: "p4m_Template.scad",
+      domain: [V(0, 0), V(0.5, 0), V(0.5, 0.5)],
+      instances,
+      lattice: [V(1, 0), V(0, 1)]
+    };
+  })();
+
+  // --- p4g -- 4*2 ----------------------------------------------------------
+  (function () {
+    const rectX = 0.5, rectY = 0.5;
+    const instances = [];
+    for (const ang of [0, 90, 180, 270]) {
+      instances.push(q => rot(q, ang));
+      instances.push(q => rot(V(rectY - q.y, rectX - q.x), ang));
+    }
+    GROUPS.p4g = {
+      label: "p4g — 4*2",
+      file: "p4g_Template.scad",
+      domain: [V(0, 0), V(rectX, 0), V(0, rectY)],
+      instances,
+      lattice: [V(1, 0), V(0, 1)]
+    };
+  })();
+
+  // --- p6 -- 632 -----------------------------------------------------------
+  (function () {
+    const A = V(0.25, SQRT3 / 12), B = V(-0.25, SQRT3 / 4), C = V(0.75, SQRT3 / 4);
+    const instances = [];
+    for (const ang of [0, 120, 240]) instances.push(q => rot(q, ang, A));
+    for (const ang of [0, 120, 240]) instances.push(q => rot(rot(q, ang, A), 180));
+    GROUPS.p6 = {
+      label: "p6 — 632",
+      file: "p6_Template.scad",
+      domain: [A, B, C],
+      instances,
+      lattice: [V(1, 0), V(0, SQRT3 / 2)]
+    };
+  })();
+
+  // --- p6m -- *632 ---------------------------------------------------------
+  (function () {
+    const A = V(0.25, SQRT3 / 12), B = V(0.25, SQRT3 / 4), C = V(0.75, SQRT3 / 4);
+    const mirrorX = q => V(0.5 - q.x, q.y); // reflect_line(90, A)
+    const base = [];
+    for (const ang of [0, 120, 240]) base.push(q => rot(q, ang, A));
+    for (const ang of [0, 120, 240]) base.push(q => rot(mirrorX(q), ang, A));
+    const instances = [];
+    for (const f of base) instances.push(f);
+    for (const f of base) instances.push(q => rot(f(q), 180));
+    GROUPS.p6m = {
+      label: "p6m — *632",
+      file: "p6m_Template.scad",
+      domain: [A, B, C],
+      instances,
+      lattice: [V(1, 0), V(0, SQRT3 / 2)]
+    };
+  })();
+
+  const GROUP_ORDER = ["p1","p2","pm","pg","cm","pmm","pmg","pgg","cmm",
+                       "p3","p3m1","p31m","p4","p4m","p4g","p6","p6m"];
+
+  for (const key of GROUP_ORDER) {
+    const opt = document.createElement("option");
+    opt.value = key;
+    opt.textContent = GROUPS[key].label;
+    groupSelect.appendChild(opt);
+  }
+
+  let GROUP_KEY = "p2";
+  let G = GROUPS[GROUP_KEY];
+  let TRI = G.domain; // current domain polygon (name kept short; not always a triangle)
+
+  // --- Coordinate system ----------------------------------------------------
+  const SIZE = 640;
+  const MARGIN = 60;
+  const SPAN = SIZE - 2 * MARGIN;      // pixels available for the view window
+  const ROUND = 5;                     // decimals in output
+
+  let VIEW = null, VIEW_SPAN = 1;
+
+  function computeView() {
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+    for (const v of TRI) {
+      if (v.x < minX) minX = v.x; if (v.x > maxX) maxX = v.x;
+      if (v.y < minY) minY = v.y; if (v.y > maxY) maxY = v.y;
+    }
+    const cx = (minX + maxX) / 2, cy = (minY + maxY) / 2;
+    const half = Math.max(maxX - minX, maxY - minY) / 2 * 1.35 || 0.5;
+    VIEW = { xmin: cx - half, xmax: cx + half, ymin: cy - half, ymax: cy + half };
+    VIEW_SPAN = VIEW.xmax - VIEW.xmin;
+  }
+
+  function toScreen(x, y) {
+    return {
+      px: MARGIN + (x - VIEW.xmin) / VIEW_SPAN * SPAN,
+      py: MARGIN + (VIEW.ymax - y) / VIEW_SPAN * SPAN   // invert y
+    };
+  }
+  function toModel(px, py) {
+    return {
+      x: VIEW.xmin + (px - MARGIN) / SPAN * VIEW_SPAN,
+      y: VIEW.ymax - (py - MARGIN) / SPAN * VIEW_SPAN
+    };
+  }
+
+  // --- Domain (convex polygon) geometry -------------------------------------
+  function sign(p, a, b) {
+    return (p.x - b.x) * (a.y - b.y) - (a.x - b.x) * (p.y - b.y);
+  }
+  function pointInDomain(p) {
+    let hasNeg = false, hasPos = false;
+    const n = TRI.length;
+    for (let i = 0; i < n; i++) {
+      const d = sign(p, TRI[i], TRI[(i + 1) % n]);
+      if (d < 0) hasNeg = true;
+      if (d > 0) hasPos = true;
+    }
+    return !(hasNeg && hasPos);   // inside (or on edge) if all same sign
+  }
+  function closestOnSegment(p, a, b) {
+    const abx = b.x - a.x, aby = b.y - a.y;
+    const apx = p.x - a.x, apy = p.y - a.y;
+    const len2 = abx * abx + aby * aby;
+    let t = len2 === 0 ? 0 : (apx * abx + apy * aby) / len2;
+    t = Math.max(0, Math.min(1, t));
+    return { x: a.x + t * abx, y: a.y + t * aby };
+  }
+  // Keep a point inside the domain: if outside, project to nearest boundary point.
+  function clampToTriangle(p) {
+    if (pointInDomain(p)) return { x: p.x, y: p.y };
+    let best = null, bestD = Infinity;
+    const n = TRI.length;
+    for (let i = 0; i < n; i++) {
+      const c = closestOnSegment(p, TRI[i], TRI[(i + 1) % n]);
+      const d = (c.x - p.x) ** 2 + (c.y - p.y) ** 2;
+      if (d < bestD) { bestD = d; best = c; }
+    }
+    return best;
+  }
+
+  // Snap radius in screen pixels; converted to model units for comparison.
+  const SNAP_PX = 12;
+  function snapModelRadius() { return SNAP_PX / SPAN * VIEW_SPAN; }
+
+  // Collect snap targets: every domain corner + every placed point
+  // (across all polygons). Optionally exclude one point (e.g. the one being
+  // dragged) by reference.
+  function snapTargets(exclude) {
+    const targets = TRI.map(v => ({ x: v.x, y: v.y }));
+    for (const poly of polygons) {
+      for (const pt of poly.points) {
+        if (pt === exclude) continue;
+        targets.push({ x: pt.x, y: pt.y });
+      }
+    }
+    return targets;
+  }
+
+  // If snapping is on and a target is within range, return it; else return p.
+  function applySnap(p, exclude) {
+    if (!snapToggle.checked) return p;
+    const r = snapModelRadius();
+    const r2 = r * r;
+    let best = null, bestD = r2;
+    for (const t of snapTargets(exclude)) {
+      const d = (t.x - p.x) ** 2 + (t.y - p.y) ** 2;
+      if (d <= bestD) { bestD = d; best = t; }
+    }
+    return best ? { x: best.x, y: best.y } : p;
+  }
+
+  // --- Hit testing (edit mode) ---------------------------------------------
+  const HIT_PX = 10;   // pixel radius for grabbing a point or handle
+
+  // Find the closest anchor or control handle (across all polygons) to the
+  // given model-space point, within HIT_PX screen pixels.
+  function hitTest(m) {
+    const ms = toScreen(m.x, m.y);
+    let best = null, bestD = HIT_PX * HIT_PX;
+    for (const poly of polygons) {
+      for (const pt of poly.points) {
+        // anchor
+        const as = toScreen(pt.x, pt.y);
+        let d = (as.px - ms.px) ** 2 + (as.py - ms.py) ** 2;
+        if (d <= bestD) { bestD = d; best = { poly, point: pt, kind: "anchor" }; }
+        // control handle (if present)
+        if (pt.cx != null) {
+          const hs = toScreen(pt.cx, pt.cy);
+          d = (hs.px - ms.px) ** 2 + (hs.py - ms.py) ** 2;
+          if (d <= bestD) { bestD = d; best = { poly, point: pt, kind: "handle" }; }
+        }
+      }
+    }
+    return best;
+  }
+
+  // --- State ---------------------------------------------------------------
+  // Each polygon: { points: [{x,y, cx,cy}], closed: bool }
+  //   cx,cy = bezier control handle for the segment ENTERING this point
+  //           (relative to model space). null => straight segment.
+  let polygons = [];
+  let current = newPoly();
+  polygons.push(current);
+
+  // Bezier drag state
+  let dragging = false;
+  let dragPointIndex = -1;
+  let mouse = null; // last known model-space mouse position
+
+  function newPoly() { return { points: [], closed: false }; }
+
+  // --- Drawing -------------------------------------------------------------
+  function drawGrid() {
+    ctx.clearRect(0, 0, SIZE, SIZE);
+
+    // background grid, spaced to roughly 12 divisions across the view window
+    ctx.lineWidth = 1;
+    ctx.strokeStyle = getCSS("--grid");
+    ctx.beginPath();
+    const rawStep = VIEW_SPAN / 12;
+    const mag = Math.pow(10, Math.floor(Math.log10(rawStep)));
+    const step = [1, 2, 5, 10].map(m => m * mag).reduce((best, s) =>
+      Math.abs(s - rawStep) < Math.abs(best - rawStep) ? s : best, mag);
+    const gstart = Math.ceil(VIEW.xmin / step) * step;
+    for (let i = gstart; i <= VIEW.xmax + 1e-9; i += step) {
+      const a = toScreen(i, VIEW.ymax), b = toScreen(i, VIEW.ymin);
+      ctx.moveTo(a.px, a.py); ctx.lineTo(b.px, b.py);
+    }
+    const hstart = Math.ceil(VIEW.ymin / step) * step;
+    for (let j = hstart; j <= VIEW.ymax + 1e-9; j += step) {
+      const c = toScreen(VIEW.xmin, j), d = toScreen(VIEW.xmax, j);
+      ctx.moveTo(c.px, c.py); ctx.lineTo(d.px, d.py);
+    }
+    ctx.stroke();
+
+    // axes (x=0 / y=0) if within view
+    ctx.strokeStyle = getCSS("--axis");
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    if (VIEW.xmin <= 0 && VIEW.xmax >= 0) {
+      const t = toScreen(0, VIEW.ymax), bm = toScreen(0, VIEW.ymin);
+      ctx.moveTo(t.px, t.py); ctx.lineTo(bm.px, bm.py);
+    }
+    if (VIEW.ymin <= 0 && VIEW.ymax >= 0) {
+      const l = toScreen(VIEW.xmin, 0), r = toScreen(VIEW.xmax, 0);
+      ctx.moveTo(l.px, l.py); ctx.lineTo(r.px, r.py);
+    }
+    ctx.stroke();
+
+    // dim everything outside the fundamental domain so the drawable area is clear
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(0, 0, SIZE, SIZE);
+    TRI.forEach((v, i) => {
+      const s = toScreen(v.x, v.y);
+      if (i) ctx.lineTo(s.px, s.py); else ctx.moveTo(s.px, s.py);
+    });
+    ctx.closePath();
+    ctx.fillStyle = "rgba(0,0,0,0.35)";
+    ctx.fill("evenodd");
+    ctx.restore();
+
+    // domain boundary
+    ctx.strokeStyle = getCSS("--accent");
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    TRI.forEach((v, i) => {
+      const s = toScreen(v.x, v.y);
+      if (i) ctx.lineTo(s.px, s.py); else ctx.moveTo(s.px, s.py);
+    });
+    ctx.closePath();
+    ctx.stroke();
+
+    // vertex labels (each domain corner, coordinates from the active group)
+    ctx.fillStyle = getCSS("--text-dim");
+    ctx.font = "12px monospace";
+    const cx = (VIEW.xmin + VIEW.xmax) / 2, cy = (VIEW.ymin + VIEW.ymax) / 2;
+    TRI.forEach(v => {
+      const dx = v.x >= cx ? 8 : -8;
+      const dy = v.y >= cy ? -8 : 16;
+      label(`(${fmt(v.x)}, ${fmt(v.y)})`, v.x, v.y, dx, dy, dx > 0 ? "left" : "right");
+    });
+  }
+
+  function label(text, x, y, dx, dy, align) {
+    const p = toScreen(x, y);
+    ctx.textAlign = align === "left" ? "left" : "right";
+    ctx.fillText(text, p.px + dx, p.py + dy);
+    ctx.textAlign = "left";
+  }
+
+  function getCSS(varName) {
+    return getComputedStyle(document.documentElement).getPropertyValue(varName).trim();
+  }
+
+  // Sample a quadratic bezier from p0 -> p1 with control c, t in [0,1]
+  function quad(p0, c, p1, t) {
+    const mt = 1 - t;
+    return {
+      x: mt * mt * p0.x + 2 * mt * t * c.x + t * t * p1.x,
+      y: mt * mt * p0.y + 2 * mt * t * c.y + t * t * p1.y
+    };
+  }
+
+  function drawPolyPath(poly, isCurrent) {
+    const pts = poly.points;
+    if (pts.length === 0) return;
+
+    ctx.lineWidth = 2.5;
+    ctx.strokeStyle = poly.closed ? getCSS("--closed") : getCSS("--line");
+
+    // build the visible path (with bezier interpolation)
+    ctx.beginPath();
+    const start = toScreen(pts[0].x, pts[0].y);
+    ctx.moveTo(start.px, start.py);
+
+    const segCount = parseInt(segInput.value) || 12;
+
+    for (let i = 1; i < pts.length; i++) {
+      strokeSegment(pts[i - 1], pts[i], segCount);
+    }
+    if (poly.closed && pts.length > 2) {
+      strokeSegment(pts[pts.length - 1], pts[0], segCount, true);
+    }
+    ctx.stroke();
+
+    // fill closed shape faintly
+    if (poly.closed && pts.length > 2) {
+      ctx.fillStyle = "rgba(102,187,106,0.10)";
+      ctx.fill();
+    }
+
+    // control handles: shown while drawing the current open poly, OR for
+    // every poly when in edit mode (so they can be grabbed).
+    if ((isCurrent && !poly.closed) || mode === "edit") {
+      for (let i = 1; i < pts.length; i++) {
+        if (pts[i].cx != null) drawHandle(pts[i - 1], pts[i]);
+      }
+    }
+
+    // points
+    for (let i = 0; i < pts.length; i++) {
+      const p = toScreen(pts[i].x, pts[i].y);
+      ctx.beginPath();
+      ctx.arc(p.px, p.py, i === 0 ? 6 : 5, 0, Math.PI * 2);
+      ctx.fillStyle = i === 0 ? getCSS("--accent") : getCSS("--point");
+      ctx.fill();
+      ctx.lineWidth = 2;
+      ctx.strokeStyle = "#1a1d23";
+      ctx.stroke();
+    }
+  }
+
+  function strokeSegment(a, b, segCount, closing) {
+    if (b.cx != null) {
+      const c = { x: b.cx, y: b.cy };
+      for (let s = 1; s <= segCount; s++) {
+        const pt = quad(a, c, b, s / segCount);
+        const sp = toScreen(pt.x, pt.y);
+        ctx.lineTo(sp.px, sp.py);
+      }
+    } else {
+      const sp = toScreen(b.x, b.y);
+      ctx.lineTo(sp.px, sp.py);
+    }
+  }
+
+  function drawHandle(a, b) {
+    const c = toScreen(b.cx, b.cy);
+    const sa = toScreen(a.x, a.y);
+    const sb = toScreen(b.x, b.y);
+    ctx.save();
+    ctx.setLineDash([4, 4]);
+    ctx.strokeStyle = getCSS("--bezier");
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(sa.px, sa.py); ctx.lineTo(c.px, c.py);
+    ctx.lineTo(sb.px, sb.py);
+    ctx.stroke();
+    ctx.restore();
+    ctx.beginPath();
+    ctx.arc(c.px, c.py, 4, 0, Math.PI * 2);
+    ctx.fillStyle = getCSS("--bezier");
+    ctx.fill();
+  }
+
+  function drawSnapIndicator() {
+    if (mode === "edit") return;
+    if (!mouse || !snapToggle.checked) return;
+    const target = applySnap(clampToTriangle(mouse));
+    // Only show if an actual snap target (not the raw cursor) was found.
+    if (target.x === mouse.x && target.y === mouse.y) return;
+    const s = toScreen(target.x, target.y);
+    ctx.save();
+    ctx.strokeStyle = getCSS("--closed");
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.arc(s.px, s.py, 9, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  function drawPreview() {
+    if (mode === "edit") return;
+    if (!mouse || current.closed) return;
+    const pts = current.points;
+    if (pts.length === 0) return;
+    const last = pts[pts.length - 1];
+    const a = toScreen(last.x, last.y);
+    // Preview line follows the snapped position so the student sees where
+    // the point will actually land.
+    const target = applySnap(clampToTriangle(mouse));
+    const m = toScreen(target.x, target.y);
+    ctx.save();
+    ctx.setLineDash([5, 5]);
+    ctx.strokeStyle = "rgba(255,255,255,0.35)";
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.moveTo(a.px, a.py);
+    ctx.lineTo(m.px, m.py);
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  function render() {
+    drawGrid();
+    for (const poly of polygons) {
+      drawPolyPath(poly, poly === current);
+    }
+    drawPreview();
+    drawSnapIndicator();
+    updateOutput();
+  }
+
+  // --- Output generation ---------------------------------------------------
+  function fmt(v) {
+    return (+v.toFixed(ROUND)).toString();
+  }
+
+  function expandPoly(poly) {
+    // returns array of {x,y} model points, bezier curves flattened
+    const pts = poly.points;
+    const out = [];
+    const segCount = parseInt(segInput.value) || 12;
+    if (pts.length === 0) return out;
+    out.push({ x: pts[0].x, y: pts[0].y });
+    for (let i = 1; i < pts.length; i++) {
+      pushSeg(out, pts[i - 1], pts[i], segCount);
+    }
+    return out;
+  }
+
+  function pushSeg(out, a, b, segCount) {
+    if (b.cx != null) {
+      const c = { x: b.cx, y: b.cy };
+      for (let s = 1; s <= segCount; s++) {
+        out.push(quad(a, c, b, s / segCount));
+      }
+    } else {
+      out.push({ x: b.x, y: b.y });
+    }
+  }
+
+  // --- Tiling preview --------------------------------------------------------
+  // Generic version of the p2-only preview: apply every symmetry instance of
+  // the active group to build one tile's worth of domain copies, then
+  // translate that tile over the group's lattice vectors.
+  const TILE_RANGE = 2;                        // tiles drawn: -2..2 in each dir
+
+  // Returns one entry per lattice cell: { translate:{x,y}, placements:[fn,...] }
+  // Each placement fn maps a domain-frame point to its final plane position.
+  // A separate per-cell grouping (rather than one flat list) is what lets
+  // groups with a clipBoundary (p3, p3m1) clip once per cell around all of
+  // that cell's overlapping instances, matching how the real templates
+  // intersect the whole rotated union with abcd_boundary.
+  function allCells() {
+    const cells = [];
+    const [lat1, lat2] = G.lattice;
+    for (let a = -TILE_RANGE; a <= TILE_RANGE; a++) {
+      for (let b = -TILE_RANGE; b <= TILE_RANGE; b++) {
+        const tx = a * lat1.x + b * lat2.x;
+        const ty = a * lat1.y + b * lat2.y;
+        const placements = G.instances.map(inst => (q => {
+          const p = inst(q);
+          return { x: p.x + tx, y: p.y + ty };
+        }));
+        cells.push({ translate: { x: tx, y: ty }, placements });
+      }
+    }
+    return cells;
+  }
+
+  function allPlacements() {
+    const out = [];
+    for (const cell of allCells()) out.push(...cell.placements);
+    return out;
+  }
+
+  function renderPreview() {
+    if (!previewOpen) return;
+    const W = previewCanvas.width, H = previewCanvas.height;
+    pctx.clearRect(0, 0, W, H);
+
+    const cells = allCells();
+    const placements = allPlacements();
+
+    // Fit all placed domains into the preview, preserving aspect ratio.
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+    for (const T of placements) {
+      for (const v of TRI) {
+        const p = T(v);
+        if (p.x < minX) minX = p.x; if (p.x > maxX) maxX = p.x;
+        if (p.y < minY) minY = p.y; if (p.y > maxY) maxY = p.y;
+      }
+    }
+    const pad = 10;
+    const spanX = maxX - minX || 1, spanY = maxY - minY || 1;
+    const scale = (Math.min(W, H) - 2 * pad) / Math.max(spanX, spanY);
+    const offX = (W - spanX * scale) / 2;
+    const offY = (H - spanY * scale) / 2;
+    const P = q => ({
+      px: offX + (q.x - minX) * scale,
+      py: H - (offY + (q.y - minY) * scale)   // invert y
+    });
+
+    // Holes = the drawn polygons (>= 3 points), bezier-flattened.
+    const holes = polygons
+      .filter(p => p.points.length >= 3)
+      .map(p => expandPoly(p));
+
+    const fill = getCSS("--closed");
+
+    function clipPath(pts) {
+      pctx.beginPath();
+      pts.forEach((v, i) => {
+        const s = P(v);
+        if (i) pctx.lineTo(s.px, s.py); else pctx.moveTo(s.px, s.py);
+      });
+      pctx.closePath();
+      pctx.clip();
+    }
+
+    for (const cell of cells) {
+      pctx.save();
+      // For groups whose instances overlap by construction (p3, p3m1), clip
+      // the whole cell to the translated abcd_boundary first, exactly like
+      // the template's outer intersection() does.
+      if (G.clipBoundary) {
+        const boundaryPts = G.clipBoundary.map(v => ({
+          x: v.x + cell.translate.x, y: v.y + cell.translate.y
+        }));
+        clipPath(boundaryPts);
+      }
+      for (const T of cell.placements) {
+        pctx.save();
+        // clip to this domain copy so holes/fill stay inside it
+        clipPath(TRI.map(T));
+        // fill the domain
+        pctx.fillStyle = fill;
+        pctx.fillRect(0, 0, W, H);
+        // punch out the holes
+        pctx.globalCompositeOperation = "destination-out";
+        for (const hole of holes) {
+          pctx.beginPath();
+          hole.forEach((pt, i) => {
+            const s = P(T(pt));
+            if (i) pctx.lineTo(s.px, s.py); else pctx.moveTo(s.px, s.py);
+          });
+          pctx.closePath();
+          pctx.fill();
+        }
+        pctx.restore();
+      }
+      pctx.restore();
+    }
+
+    // faint outlines so the tile structure reads
+    pctx.strokeStyle = "rgba(255,255,255,0.18)";
+    pctx.lineWidth = 0.5;
+    for (const T of placements) {
+      pctx.beginPath();
+      TRI.forEach((v, i) => {
+        const s = P(T(v));
+        if (i) pctx.lineTo(s.px, s.py); else pctx.moveTo(s.px, s.py);
+      });
+      pctx.closePath();
+      pctx.stroke();
+    }
+  }
+
+  function polyBlock(expanded) {
+    const coords = expanded
+      .map(p => `[${fmt(p.x)}, ${fmt(p.y)}]`)
+      .join(",\n        ");
+    return `polygon(points = [
+        ${coords}
+]);`;
+  }
+
+  function updateOutput() {
+    const blocks = [];
+
+    for (const poly of polygons) {
+      if (poly.points.length < 2) continue;
+      blocks.push(polyBlock(expandPoly(poly)));
+    }
+
+    output.value = blocks.join("\n");
+    renderPreview();
+  }
+
+
+  // --- Interaction ---------------------------------------------------------
+  function getModelFromEvent(e) {
+    const rect = canvas.getBoundingClientRect();
+    const scaleX = canvas.width / rect.width;
+    const scaleY = canvas.height / rect.height;
+    const px = (e.clientX - rect.left) * scaleX;
+    const py = (e.clientY - rect.top) * scaleY;
+    return toModel(px, py);
+  }
+
+  function startNewIfClosed() {
+    if (current.closed) {
+      current = newPoly();
+      polygons.push(current);
+    }
+  }
+
+  canvas.addEventListener("mousedown", (e) => {
+    const m = getModelFromEvent(e);
+
+    if (mode === "edit") {
+      const hit = hitTest(m);
+      if (hit) {
+        editTarget = hit;
+        canvas.style.cursor = "grabbing";
+      }
+      return;   // never add points in edit mode
+    }
+
+    // --- draw mode ---
+    startNewIfClosed();
+
+    const pts = current.points;
+    const useBezier = bezierToggle.checked && pts.length >= 1;
+
+    const cl = applySnap(clampToTriangle(m));
+    const np = { x: cl.x, y: cl.y, cx: null, cy: null };
+
+    if (useBezier) {
+      // straight-line default control = midpoint; user drags to curve
+      const prev = pts[pts.length - 1];
+      np.cx = (prev.x + np.x) / 2;
+      np.cy = (prev.y + np.y) / 2;
+      pts.push(np);
+      dragging = true;
+      dragPointIndex = pts.length - 1;
+    } else {
+      pts.push(np);
+    }
+    setStatus();
+    render();
+  });
+
+  canvas.addEventListener("mousemove", (e) => {
+    const m = getModelFromEvent(e);
+    mouse = m;
+    readout.textContent = `( ${m.x.toFixed(3)}, ${m.y.toFixed(3)} )`;
+
+    if (mode === "edit") {
+      if (editTarget) {
+        // Move the grabbed anchor or handle.
+        if (editTarget.kind === "anchor") {
+          // anchors stay in the domain and snap (excluding themselves)
+          const cl = applySnap(clampToTriangle(m), editTarget.point);
+          editTarget.point.x = cl.x;
+          editTarget.point.y = cl.y;
+        } else {
+          // control handle: clamp to domain, no snapping
+          const cl = clampToTriangle(m);
+          editTarget.point.cx = cl.x;
+          editTarget.point.cy = cl.y;
+        }
+        canvas.style.cursor = "grabbing";
+      } else {
+        // hover feedback: show grab cursor when over a draggable target
+        canvas.style.cursor = hitTest(m) ? "grab" : "default";
+      }
+      render();
+      return;
+    }
+
+    // --- draw mode ---
+    if (dragging && dragPointIndex >= 0) {
+      // clamp the control handle into the domain too; because the domain
+      // is convex, a quadratic with both anchors + control inside stays inside.
+      const cl = clampToTriangle(m);
+      const p = current.points[dragPointIndex];
+      p.cx = cl.x;
+      p.cy = cl.y;
+    }
+    render();
+  });
+
+  window.addEventListener("mouseup", () => {
+    if (mode === "edit") {
+      if (editTarget) {
+        editTarget = null;
+        canvas.style.cursor = mouse && hitTest(mouse) ? "grab" : "default";
+        setStatus();
+        render();
+      }
+      return;
+    }
+
+    if (dragging) {
+      // if the handle is basically on the chord midpoint, treat as straight
+      const p = current.points[dragPointIndex];
+      const prev = current.points[dragPointIndex - 1];
+      if (prev) {
+        const midx = (prev.x + p.x) / 2, midy = (prev.y + p.y) / 2;
+        if (Math.hypot(p.cx - midx, p.cy - midy) < 0.02) {
+          p.cx = null; p.cy = null;
+        }
+      }
+    }
+    dragging = false;
+    dragPointIndex = -1;
+    render();
+  });
+
+  canvas.addEventListener("mouseleave", () => {
+    mouse = null;
+    readout.textContent = "( –, – )";
+    render();
+  });
+
+  // --- Buttons -------------------------------------------------------------
+  document.getElementById("undoBtn").addEventListener("click", () => {
+    if (current.points.length > 0) {
+      current.closed = false;
+      current.points.pop();
+    } else if (polygons.length > 1) {
+      polygons.pop();
+      current = polygons[polygons.length - 1];
+      current.closed = false;
+    }
+    setStatus();
+    render();
+  });
+
+  document.getElementById("closeBtn").addEventListener("click", () => {
+    if (current.points.length >= 3) {
+      current.closed = true;
+      setStatus("Loop closed. Next click starts a new polygon.");
+    } else {
+      setStatus("Need at least 3 points to close a loop.");
+    }
+    render();
+  });
+
+  document.getElementById("newBtn").addEventListener("click", () => {
+    if (current.points.length > 0) {
+      current = newPoly();
+      polygons.push(current);
+      setStatus("Started a new polygon.");
+      render();
+    }
+  });
+
+  document.getElementById("clearBtn").addEventListener("click", () => {
+    polygons = [];
+    current = newPoly();
+    polygons.push(current);
+    setStatus("Cleared. Click to start drawing.");
+    render();
+  });
+
+  const copyBtn = document.getElementById("copyBtn");
+  copyBtn.addEventListener("click", () => {
+    output.select();
+    navigator.clipboard.writeText(output.value).then(() => {
+      copyBtn.textContent = "Copied ✓";
+      copyBtn.classList.add("copied");
+      setTimeout(() => {
+        copyBtn.textContent = "Copy";
+        copyBtn.classList.remove("copied");
+      }, 1400);
+    }).catch(() => {
+      document.execCommand("copy");
+    });
+  });
+
+  function setMode(next) {
+    mode = next;
+    const editing = mode === "edit";
+    editModeBtn.classList.toggle("active", editing);
+    drawModeBtn.classList.toggle("active", !editing);
+    editTarget = null;
+    canvas.style.cursor = editing ? "default" : "crosshair";
+    // bezier/seg controls only meaningful while drawing
+    setStatus(editing
+      ? "Edit mode: drag any point or Bézier handle. Anchors snap to corners/points."
+      : "Draw mode: click to place points.");
+    render();
+  }
+  drawModeBtn.addEventListener("click", () => setMode("draw"));
+  editModeBtn.addEventListener("click", () => setMode("edit"));
+
+  previewToggle.addEventListener("click", () => {
+    previewOpen = !previewOpen;
+    previewPanel.classList.toggle("collapsed", !previewOpen);
+    previewToggle.textContent = previewOpen ? "–" : "+";
+    if (previewOpen) renderPreview();
+  });
+
+  segInput.addEventListener("change", render);
+  bezierToggle.addEventListener("change", () => {
+    setStatus(bezierToggle.checked
+      ? "Bézier on: click then drag to curve the segment."
+      : "Straight-line mode.");
+  });
+  snapToggle.addEventListener("change", () => {
+    setStatus(snapToggle.checked
+      ? "Snapping on: points lock to corners and existing points."
+      : "Snapping off.");
+    render();
+  });
+
+  groupSelect.addEventListener("change", () => {
+    loadGroup(groupSelect.value);
+  });
+
+  function loadGroup(key) {
+    GROUP_KEY = key;
+    G = GROUPS[key];
+    TRI = G.domain;
+    computeView();
+    polygons = [];
+    current = newPoly();
+    polygons.push(current);
+    mode = "draw";
+    setMode("draw");
+    previewFoot.textContent = `${G.label}  ·  ${G.file}`;
+    setStatus(`Switched to ${G.label}. Canvas cleared -- click inside the domain to start drawing.`);
+    render();
+  }
+
+  function setStatus(msg) {
+    if (msg) { status.innerHTML = msg; return; }
+    const n = current.points.length;
+    const polyCount = polygons.filter(p => p.points.length >= 2).length;
+    status.innerHTML =
+      `Current polygon: <b>${n}</b> point${n === 1 ? "" : "s"} · ` +
+      `Total polygons: <b>${polyCount}</b>`;
+  }
+
+  // init
+  groupSelect.value = GROUP_KEY;
+  loadGroup(GROUP_KEY);
+})();
+</script>
+</body>
+</html>
