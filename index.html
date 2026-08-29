@@ -148,7 +148,7 @@
     position: absolute;
     top: 24px;
     right: 24px;
-    width: 260px;
+    width: 400px;
     background: rgba(30,34,41,0.92);
     border: 1px solid var(--grid);
     border-radius: 8px;
@@ -178,8 +178,8 @@
   .preview-head button:hover { color: var(--text); background: transparent; }
   #previewCanvas {
     display: block;
-    width: 260px;
-    height: 260px;
+    width: 400px;
+    height: 400px;
     background: #16181d;
   }
   .preview-foot {
@@ -203,6 +203,39 @@
     color: var(--text-dim);
     pointer-events: none;
   }
+  .point-editor {
+    position: absolute;
+    display: none;
+    gap: 6px;
+    align-items: center;
+    background: rgba(20,22,27,0.96);
+    border: 1px solid var(--accent-dim);
+    border-radius: 6px;
+    padding: 6px 8px;
+    z-index: 55;
+    box-shadow: 0 4px 14px rgba(0,0,0,0.45);
+  }
+  .point-editor label {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 11px;
+    color: var(--text-dim);
+    font-family: "SF Mono", Menlo, Consolas, monospace;
+  }
+  .point-editor input {
+    width: 72px;
+    background: var(--panel-light);
+    border: 1px solid var(--grid);
+    color: var(--text);
+    border-radius: 4px;
+    padding: 3px 5px;
+    font-size: 12px;
+    font-family: "SF Mono", Menlo, Consolas, monospace;
+  }
+  .point-editor input:focus {
+    outline: 1px solid var(--accent);
+  }
   .sidebar {
     width: 400px;
     background: var(--panel);
@@ -217,6 +250,14 @@
     display: flex;
     justify-content: space-between;
     align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .sidebar-head .out-controls {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
   }
   .sidebar-head h2 {
     font-size: 14px;
@@ -245,12 +286,6 @@
     background: var(--panel-light);
   }
   .status b { color: var(--accent); }
-  .hint {
-    font-size: 11.5px;
-    color: var(--text-dim);
-    padding: 0 20px;
-    line-height: 1.5;
-  }
   .seg-control {
     display: flex;
     align-items: center;
@@ -288,6 +323,7 @@
     <select id="groupSelect" title="Wallpaper group -- domain shape and symmetry come from that group's Template.scad"></select>
     <div class="mode-switch" role="group" aria-label="Tool mode">
       <button id="drawModeBtn" class="mode active">✏️ Draw</button>
+      <button id="circleModeBtn" class="mode">⭕ Circle</button>
       <button id="editModeBtn" class="mode">✋ Edit points</button>
     </div>
     <label class="toggle">
@@ -298,9 +334,17 @@
       <input type="checkbox" id="snapToggle" checked>
       Snap to points &amp; corners
     </label>
+    <label class="toggle" title="While placing or dragging a point, snap it onto the same horizontal/vertical line as another point (a dashed guide line shows the alignment)">
+      <input type="checkbox" id="alignToggle" checked>
+      Align to points (H/V)
+    </label>
     <div class="seg-control" title="Number of straight segments used to approximate each Bézier curve">
       curve segments
       <input type="number" id="segCount" value="12" min="2" max="64">
+    </div>
+    <div class="seg-control" title="Uniform scale applied to the pattern inside the golden-triangle frame (Full panel output only)">
+      pattern scale
+      <input type="number" id="scaleInput" value="30" min="0.1" step="0.5">
     </div>
     <button id="undoBtn">Undo point</button>
     <button id="closeBtn">Close loop</button>
@@ -312,6 +356,10 @@
   <div class="canvas-wrap">
     <canvas id="canvas" width="640" height="640"></canvas>
     <div class="coord-readout" id="readout">( –, – )</div>
+    <div class="point-editor" id="pointEditor">
+      <label><span id="peXLabel">X</span><input type="number" id="peX" step="any"></label>
+      <label id="peYWrap"><span>Y</span><input type="number" id="peY" step="any"></label>
+    </div>
     <div class="preview-panel" id="previewPanel">
       <div class="preview-head">
         <span>Tiling preview</span>
@@ -324,24 +372,17 @@
   <div class="sidebar">
     <div class="sidebar-head">
       <h2>OpenSCAD output</h2>
-      <button id="copyBtn" class="primary">Copy</button>
+      <div class="out-controls">
+        <div class="mode-switch" role="group" aria-label="Output mode">
+          <button id="outCutBtn" class="mode">Cut shapes</button>
+          <button id="outFullBtn" class="mode active">Full panel</button>
+        </div>
+        <button id="downloadBtn">Download .scad</button>
+        <button id="copyBtn" class="primary">Copy</button>
+      </div>
     </div>
     <textarea id="output" readonly spellcheck="false"></textarea>
     <div class="status" id="status">Click inside the domain to place your first point.</div>
-    <p class="hint">
-      Pick a wallpaper group above -- the drawable domain, symmetry preview, and vertex
-      labels are all rebuilt from that group's <code>Templates/*_Template.scad</code>
-      construction. Switching groups clears the canvas (coordinate systems differ per group).<br><br>
-      <b>Draw</b> mode: click to drop points inside the domain. Clicks outside snap to the
-      nearest boundary point. With <b>Snap</b> on, points lock onto the corners and any
-      existing point (a green ring shows the target). With <b>Bézier</b> on, click then drag
-      to curve a segment. <kbd>Close loop</kbd> finishes a shape.<br>
-      <b>Edit points</b> mode: hover a point or Bézier handle (cursor turns to a hand) and
-      drag it to a new spot. Anchors stay in the domain and snap to corners/points; the
-      output updates live.<br><br>
-      The output panel is just the drawn <code>polygon()</code> block(s) -- paste them
-      into that group's <code>FundamentalCut()</code> / <code>shapesToCut()</code>.
-    </p>
   </div>
 </main>
 
@@ -356,19 +397,31 @@
   const readout = document.getElementById("readout");
   const bezierToggle = document.getElementById("bezierToggle");
   const snapToggle = document.getElementById("snapToggle");
+  const alignToggle = document.getElementById("alignToggle");
   const segInput = document.getElementById("segCount");
+  const scaleInput = document.getElementById("scaleInput");
   const drawModeBtn = document.getElementById("drawModeBtn");
+  const circleModeBtn = document.getElementById("circleModeBtn");
   const editModeBtn = document.getElementById("editModeBtn");
+  const outCutBtn = document.getElementById("outCutBtn");
+  const outFullBtn = document.getElementById("outFullBtn");
+  const downloadBtn = document.getElementById("downloadBtn");
   const previewPanel = document.getElementById("previewPanel");
   const previewCanvas = document.getElementById("previewCanvas");
   const pctx = previewCanvas.getContext("2d");
   const previewToggle = document.getElementById("previewToggle");
   const previewFoot = document.getElementById("previewFoot");
   const groupSelect = document.getElementById("groupSelect");
+  const pointEditor = document.getElementById("pointEditor");
+  const peX = document.getElementById("peX");
+  const peY = document.getElementById("peY");
+  const peXLabel = document.getElementById("peXLabel");
+  const peYWrap = document.getElementById("peYWrap");
   let previewOpen = true;
 
-  let mode = "draw";              // "draw" | "edit"
-  let editTarget = null;          // { poly, point, kind: "anchor"|"handle" }
+  let mode = "draw";              // "draw" | "edit" | "circle"
+  let editTarget = null;          // { poly, point, kind: "anchor"|"handle" } or { circle, kind: "circle-center"|"circle-edge" }
+  let outputMode = "full";        // "cut" | "full"
 
   // ==========================================================================
   // Wallpaper-group definitions
@@ -410,16 +463,60 @@
     return V(pivot.x + bx, pivot.y + by);
   }
 
+  // --- Dual-purpose transforms -----------------------------------------------
+  // Each group's `instances` list doubles as the source for the "Full panel"
+  // output's CompiledTile(). A plain closure (like rot()/mirrorN() above) can
+  // move a preview point, but can't also emit the equivalent OpenSCAD
+  // transform text. T() pairs the two: `.apply` is the point-transform used
+  // for the live preview (identical math to before), `.scad` is the matching
+  // OpenSCAD snippet that -- wrapped around FundamentalRemains() -- reproduces
+  // it. composeT(t1, t2) applies t1 first then t2 (matching q => t2(t1(q))),
+  // and reverses that order for the SCAD text since OpenSCAD nests outer
+  // transforms last-applied.
+  function r5(v) { return (+v.toFixed(5)).toString(); }
+  function T(apply, scad) { return { apply, scad }; }
+  function idT() { return T(q => q, ""); }
+  function rotT(deg, pivot) {
+    pivot = pivot || V(0, 0);
+    const apply = q => rot(q, deg, pivot);
+    const normDeg = ((deg % 360) + 360) % 360;
+    let scad;
+    if (normDeg === 0) scad = "";
+    else if (pivot.x === 0 && pivot.y === 0) scad = `rotate(${r5(deg)})`;
+    else scad = `translate([${r5(pivot.x)}, ${r5(pivot.y)}]) rotate(${r5(deg)}) translate([${r5(-pivot.x)}, ${r5(-pivot.y)}])`;
+    return T(apply, scad);
+  }
+  function mirrorT(nx, ny) {
+    const len = Math.hypot(nx, ny);
+    const ux = nx / len, uy = ny / len;
+    const apply = q => mirrorN(q, ux, uy);
+    const scad = `mirror([${r5(nx)}, ${r5(ny)}, 0])`;
+    return T(apply, scad);
+  }
+  function translateT(dx, dy) {
+    const apply = q => V(q.x + dx, q.y + dy);
+    const scad = (dx === 0 && dy === 0) ? "" : `translate([${r5(dx)}, ${r5(dy)}])`;
+    return T(apply, scad);
+  }
+  function composeT(t1, t2) {
+    return T(
+      q => t2.apply(t1.apply(q)),
+      [t2.scad, t1.scad].filter(Boolean).join(" ")
+    );
+  }
+
   const GROUPS = {};
 
   // --- p1 -- o (translation only) ------------------------------------------
   (function () {
     const v1 = V(1, 0), v2 = V(0.2, 0.6); // oblique defaults from p1_Template.scad
+    const instancesT = [idT()];
     GROUPS.p1 = {
       label: "p1 — o",
       file: "p1_Template.scad",
       domain: [V(0, 0), v1, V(v1.x + v2.x, v1.y + v2.y), v2],
-      instances: [q => q],
+      instances: instancesT.map(t => t.apply),
+      instancesScad: instancesT.map(t => t.scad),
       lattice: [v1, v2]
     };
   })();
@@ -427,11 +524,13 @@
   // --- p2 -- 2222 -------------------------------------------------------
   (function () {
     const H = 0.25;
+    const instancesT = [idT(), rotT(180)];
     GROUPS.p2 = {
       label: "p2 — 2222",
       file: "p2_Template.scad",
       domain: [V(-0.5, 0), V(0.5, 0), V(0, H)],
-      instances: [q => q, q => rot(q, 180)],
+      instances: instancesT.map(t => t.apply),
+      instancesScad: instancesT.map(t => t.scad),
       lattice: [V(0.5, H), V(0.5, -H)]
     };
   })();
@@ -439,11 +538,13 @@
   // --- pm -- ** ----------------------------------------------------------
   (function () {
     const L = Math.PI, H = 3;
+    const instancesT = [idT(), mirrorT(0, 1)];
     GROUPS.pm = {
       label: "pm — **",
       file: "pm_Template.scad",
       domain: [V(-L, 0), V(-L, H), V(L, H), V(L, 0)],
-      instances: [q => q, q => V(q.x, -q.y)],
+      instances: instancesT.map(t => t.apply),
+      instancesScad: instancesT.map(t => t.scad),
       lattice: [V(2 * L, 0), V(0, 2 * H)]
     };
   })();
@@ -451,11 +552,13 @@
   // --- pg -- ×× -----------------------------------------------------------
   (function () {
     const rectH = 0.5, rectL = 0.15;
+    const instancesT = [idT(), composeT(mirrorT(0, 1), translateT(rectL, 0))];
     GROUPS.pg = {
       label: "pg — ××",
       file: "pg_Template.scad",
       domain: [V(0, rectH), V(rectL, rectH), V(rectL, -rectH), V(0, -rectH)],
-      instances: [q => q, q => V(q.x + rectL, -q.y)],
+      instances: instancesT.map(t => t.apply),
+      instancesScad: instancesT.map(t => t.scad),
       lattice: [V(2 * rectL, 0), V(0, 2 * rectH)]
     };
   })();
@@ -463,11 +566,13 @@
   // --- cm -- *× -----------------------------------------------------------
   (function () {
     const W = 0.4;
+    const instancesT = [idT(), mirrorT(1, 0)];
     GROUPS.cm = {
       label: "cm — *×",
       file: "cm_Template.scad",
       domain: [V(W, 0), V(0, 0.5), V(0, -0.5)],
-      instances: [q => q, q => V(-q.x, q.y)],
+      instances: instancesT.map(t => t.apply),
+      instancesScad: instancesT.map(t => t.scad),
       lattice: [V(2 * W, 0), V(W, 0.5)]
     };
   })();
@@ -475,16 +580,13 @@
   // --- pmm -- *2222 --------------------------------------------------------
   (function () {
     const L = 10, H = 15;
+    const instancesT = [idT(), mirrorT(1, 0), mirrorT(0, 1), rotT(180)];
     GROUPS.pmm = {
       label: "pmm — *2222",
       file: "pmm_Template.scad",
       domain: [V(0, 0), V(L, 0), V(L, H), V(0, H)],
-      instances: [
-        q => q,
-        q => V(-q.x, q.y),
-        q => V(q.x, -q.y),
-        q => V(-q.x, -q.y)
-      ],
+      instances: instancesT.map(t => t.apply),
+      instancesScad: instancesT.map(t => t.scad),
       lattice: [V(2 * L, 0), V(0, 2 * H)]
     };
   })();
@@ -492,16 +594,18 @@
   // --- pmg -- 22* --------------------------------------------------------
   (function () {
     const L = 0.5, H = 0.5;
+    const instancesT = [
+      idT(),
+      composeT(mirrorT(1, 0), composeT(mirrorT(0, 1), translateT(0, H))),
+      composeT(mirrorT(1, 0), translateT(0, -H)),
+      mirrorT(0, 1)
+    ];
     GROUPS.pmg = {
       label: "pmg — 22*",
       file: "pmg_Template.scad",
       domain: [V(0, 0), V(0, H), V(L, H), V(L, 0)],
-      instances: [
-        q => q,
-        q => V(-q.x, H - q.y),
-        q => V(-q.x, q.y - H),
-        q => V(q.x, -q.y)
-      ],
+      instances: instancesT.map(t => t.apply),
+      instancesScad: instancesT.map(t => t.scad),
       lattice: [V(2 * L, 0), V(0, 2 * H)]
     };
   })();
@@ -509,16 +613,18 @@
   // --- pgg -- 22× --------------------------------------------------------
   (function () {
     const rectX = 1, rectY = 1;
+    const instancesT = [
+      idT(),
+      rotT(180),
+      composeT(mirrorT(1, 0), translateT(-rectX / 2, -rectY / 2)),
+      composeT(mirrorT(0, 1), translateT(rectX / 2, rectY / 2))
+    ];
     GROUPS.pgg = {
       label: "pgg — 22×",
       file: "pgg_Template.scad",
       domain: [V(-rectX / 2, 0), V(0, rectY / 2), V(rectX / 2, 0)],
-      instances: [
-        q => q,
-        q => V(-q.x, -q.y),
-        q => V(-q.x - rectX / 2, q.y - rectY / 2),
-        q => V(q.x + rectX / 2, rectY / 2 - q.y)
-      ],
+      instances: instancesT.map(t => t.apply),
+      instancesScad: instancesT.map(t => t.scad),
       lattice: [V(rectX, 0), V(0, rectY)]
     };
   })();
@@ -526,16 +632,13 @@
   // --- cmm -- 2*22 -------------------------------------------------------
   (function () {
     const rectX = 0.6, rectY = Math.sin(Math.acos(0.6));
+    const instancesT = [idT(), mirrorT(1, 0), rotT(180), mirrorT(0, 1)];
     GROUPS.cmm = {
       label: "cmm — 2*22",
       file: "cmm_Template.scad",
       domain: [V(0, 0), V(rectX, 0), V(0, rectY)],
-      instances: [
-        q => q,
-        q => V(-q.x, q.y),
-        q => V(-q.x, -q.y),
-        q => V(q.x, -q.y)
-      ],
+      instances: instancesT.map(t => t.apply),
+      instancesScad: instancesT.map(t => t.scad),
       lattice: [V(2 * rectX, 0), V(rectX, rectY)]
     };
   })();
@@ -555,17 +658,18 @@
   (function () {
     const A = V(-0.25, SQRT3 / 4), F = V(0.25, SQRT3 / 12),
           C = V(0.25, -SQRT3 / 4), E = V(-0.25, -SQRT3 / 12);
-    const instances = [];
+    const instancesT = [];
     for (const pivot of [F, E]) {
       for (const ang of [0, 120, 240]) {
-        instances.push(q => rot(q, ang, pivot));
+        instancesT.push(rotT(ang, pivot));
       }
     }
     GROUPS.p3 = {
       label: "p3 — 333",
       file: "p3_Template.scad",
       domain: [A, F, C, E],
-      instances,
+      instances: instancesT.map(t => t.apply),
+      instancesScad: instancesT.map(t => t.scad),
       lattice: [V(1, 0), V(-0.5, SQRT3 / 2)],
       clipBoundary: ABCD_BOUNDARY
     };
@@ -575,18 +679,19 @@
   (function () {
     const A = V(-0.25, SQRT3 / 4), F = V(0.25, SQRT3 / 12), E = V(-0.25, -SQRT3 / 12);
     const nx = -0.5, ny = SQRT3 / 2; // unit normal of mirror([-1/4, sqrt(3)/4, 0])
-    const instances = [];
+    const instancesT = [];
     for (const pivot of [F, E]) {
       for (const ang of [0, 120, 240]) {
-        instances.push(q => rot(q, ang, pivot));
-        instances.push(q => rot(mirrorN(q, nx, ny), ang, pivot));
+        instancesT.push(rotT(ang, pivot));
+        instancesT.push(composeT(mirrorT(nx, ny), rotT(ang, pivot)));
       }
     }
     GROUPS.p3m1 = {
       label: "p3m1 — *333",
       file: "p3m1_Template.scad",
       domain: [A, F, E],
-      instances,
+      instances: instancesT.map(t => t.apply),
+      instancesScad: instancesT.map(t => t.scad),
       lattice: [V(1, 0), V(-0.5, SQRT3 / 2)],
       clipBoundary: ABCD_BOUNDARY
     };
@@ -596,41 +701,45 @@
   (function () {
     const A = V(0.25, SQRT3 / 12), B = V(-0.25, SQRT3 / 4), C = V(0.75, SQRT3 / 4);
     const nx = SQRT3 / 2, ny = 0.5; // unit normal of mirror([sqrt(3)/2, 1/2, 0])
-    const instances = [];
-    for (const ang of [0, 120, 240]) instances.push(q => rot(q, ang, A));
-    for (const ang of [0, 120, 240]) instances.push(q => mirrorN(rot(q, ang, A), nx, ny));
+    const instancesT = [];
+    for (const ang of [0, 120, 240]) instancesT.push(rotT(ang, A));
+    for (const ang of [0, 120, 240]) instancesT.push(composeT(rotT(ang, A), mirrorT(nx, ny)));
     GROUPS.p31m = {
       label: "p31m — 3*3",
       file: "p31m_Template.scad",
       domain: [A, B, C],
-      instances,
+      instances: instancesT.map(t => t.apply),
+      instancesScad: instancesT.map(t => t.scad),
       lattice: [V(1, 0), V(0.5, SQRT3 / 2)]
     };
   })();
 
   // --- p4 -- 442 -----------------------------------------------------------
   (function () {
+    const instancesT = [idT(), rotT(90), rotT(180), rotT(270)];
     GROUPS.p4 = {
       label: "p4 — 442",
       file: "p4_Template.scad",
       domain: [V(0, 0), V(0, 0.5), V(0.5, 0.5), V(0.5, 0)],
-      instances: [q => q, q => rot(q, 90), q => rot(q, 180), q => rot(q, 270)],
+      instances: instancesT.map(t => t.apply),
+      instancesScad: instancesT.map(t => t.scad),
       lattice: [V(1, 0), V(0, 1)]
     };
   })();
 
   // --- p4m -- *442 ---------------------------------------------------------
   (function () {
-    const instances = [];
+    const instancesT = [];
     for (const ang of [0, 90, 180, 270]) {
-      instances.push(q => rot(q, ang));
-      instances.push(q => rot(V(q.x, -q.y), ang));
+      instancesT.push(rotT(ang));
+      instancesT.push(composeT(mirrorT(0, 1), rotT(ang)));
     }
     GROUPS.p4m = {
       label: "p4m — *442",
       file: "p4m_Template.scad",
       domain: [V(0, 0), V(0.5, 0), V(0.5, 0.5)],
-      instances,
+      instances: instancesT.map(t => t.apply),
+      instancesScad: instancesT.map(t => t.scad),
       lattice: [V(1, 0), V(0, 1)]
     };
   })();
@@ -638,16 +747,18 @@
   // --- p4g -- 4*2 ----------------------------------------------------------
   (function () {
     const rectX = 0.5, rectY = 0.5;
-    const instances = [];
+    const instancesT = [];
+    const g = composeT(mirrorT(1, 1), translateT(rectY, rectX));
     for (const ang of [0, 90, 180, 270]) {
-      instances.push(q => rot(q, ang));
-      instances.push(q => rot(V(rectY - q.y, rectX - q.x), ang));
+      instancesT.push(rotT(ang));
+      instancesT.push(composeT(g, rotT(ang)));
     }
     GROUPS.p4g = {
       label: "p4g — 4*2",
       file: "p4g_Template.scad",
       domain: [V(0, 0), V(rectX, 0), V(0, rectY)],
-      instances,
+      instances: instancesT.map(t => t.apply),
+      instancesScad: instancesT.map(t => t.scad),
       lattice: [V(1, 0), V(0, 1)]
     };
   })();
@@ -655,14 +766,15 @@
   // --- p6 -- 632 -----------------------------------------------------------
   (function () {
     const A = V(0.25, SQRT3 / 12), B = V(-0.25, SQRT3 / 4), C = V(0.75, SQRT3 / 4);
-    const instances = [];
-    for (const ang of [0, 120, 240]) instances.push(q => rot(q, ang, A));
-    for (const ang of [0, 120, 240]) instances.push(q => rot(rot(q, ang, A), 180));
+    const instancesT = [];
+    for (const ang of [0, 120, 240]) instancesT.push(rotT(ang, A));
+    for (const ang of [0, 120, 240]) instancesT.push(composeT(rotT(ang, A), rotT(180)));
     GROUPS.p6 = {
       label: "p6 — 632",
       file: "p6_Template.scad",
       domain: [A, B, C],
-      instances,
+      instances: instancesT.map(t => t.apply),
+      instancesScad: instancesT.map(t => t.scad),
       lattice: [V(1, 0), V(0, SQRT3 / 2)]
     };
   })();
@@ -670,18 +782,19 @@
   // --- p6m -- *632 ---------------------------------------------------------
   (function () {
     const A = V(0.25, SQRT3 / 12), B = V(0.25, SQRT3 / 4), C = V(0.75, SQRT3 / 4);
-    const mirrorX = q => V(0.5 - q.x, q.y); // reflect_line(90, A)
+    const mirrorX = composeT(mirrorT(1, 0), translateT(0.5, 0)); // reflect_line(90, A)
     const base = [];
-    for (const ang of [0, 120, 240]) base.push(q => rot(q, ang, A));
-    for (const ang of [0, 120, 240]) base.push(q => rot(mirrorX(q), ang, A));
-    const instances = [];
-    for (const f of base) instances.push(f);
-    for (const f of base) instances.push(q => rot(f(q), 180));
+    for (const ang of [0, 120, 240]) base.push(rotT(ang, A));
+    for (const ang of [0, 120, 240]) base.push(composeT(mirrorX, rotT(ang, A)));
+    const instancesT = [];
+    for (const t of base) instancesT.push(t);
+    for (const t of base) instancesT.push(composeT(t, rotT(180)));
     GROUPS.p6m = {
       label: "p6m — *632",
       file: "p6m_Template.scad",
       domain: [A, B, C],
-      instances,
+      instances: instancesT.map(t => t.apply),
+      instancesScad: instancesT.map(t => t.scad),
       lattice: [V(1, 0), V(0, SQRT3 / 2)]
     };
   })();
@@ -733,40 +846,11 @@
     };
   }
 
-  // --- Domain (convex polygon) geometry -------------------------------------
-  function sign(p, a, b) {
-    return (p.x - b.x) * (a.y - b.y) - (a.x - b.x) * (p.y - b.y);
-  }
-  function pointInDomain(p) {
-    let hasNeg = false, hasPos = false;
-    const n = TRI.length;
-    for (let i = 0; i < n; i++) {
-      const d = sign(p, TRI[i], TRI[(i + 1) % n]);
-      if (d < 0) hasNeg = true;
-      if (d > 0) hasPos = true;
-    }
-    return !(hasNeg && hasPos);   // inside (or on edge) if all same sign
-  }
-  function closestOnSegment(p, a, b) {
-    const abx = b.x - a.x, aby = b.y - a.y;
-    const apx = p.x - a.x, apy = p.y - a.y;
-    const len2 = abx * abx + aby * aby;
-    let t = len2 === 0 ? 0 : (apx * abx + apy * aby) / len2;
-    t = Math.max(0, Math.min(1, t));
-    return { x: a.x + t * abx, y: a.y + t * aby };
-  }
-  // Keep a point inside the domain: if outside, project to nearest boundary point.
-  function clampToTriangle(p) {
-    if (pointInDomain(p)) return { x: p.x, y: p.y };
-    let best = null, bestD = Infinity;
-    const n = TRI.length;
-    for (let i = 0; i < n; i++) {
-      const c = closestOnSegment(p, TRI[i], TRI[(i + 1) % n]);
-      const d = (c.x - p.x) ** 2 + (c.y - p.y) ** 2;
-      if (d < bestD) { bestD = d; best = c; }
-    }
-    return best;
-  }
+  // Points, handles, and circles are no longer clamped to the fundamental
+  // domain: cuts are allowed to bleed past its edges on purpose, so adjacent
+  // tile copies overlap slightly at the seam instead of leaving a sliver gap
+  // when printed/cut. The domain outline is still drawn (and dimmed outside)
+  // purely as a placement reference.
 
   // Snap radius in screen pixels; converted to model units for comparison.
   const SNAP_PX = 12;
@@ -783,7 +867,56 @@
         targets.push({ x: pt.x, y: pt.y });
       }
     }
+    for (const c of circles) {
+      if (c === exclude) continue;
+      targets.push({ x: c.cx, y: c.cy });
+    }
     return targets;
+  }
+
+  // Alignment-guide targets: same source points as snapTargets (minus domain
+  // corners aren't excluded either -- lining up with a corner is useful too),
+  // but matched per-axis independently instead of by full (x,y) proximity.
+  function alignTargets(exclude) {
+    return snapTargets(exclude);
+  }
+
+  // If a point's x or y lines up (within snap radius) with an existing
+  // point's x or y, snap that axis onto it. Returns which axes snapped so a
+  // guide line can be drawn.
+  function applyAlignSnap(p, exclude) {
+    if (!alignToggle.checked) return { x: p.x, y: p.y, snapX: false, snapY: false };
+    const r = snapModelRadius();
+    let bestX = null, bestDX = r;
+    let bestY = null, bestDY = r;
+    for (const t of alignTargets(exclude)) {
+      const dx = Math.abs(t.x - p.x);
+      if (dx < bestDX) { bestDX = dx; bestX = t.x; }
+      const dy = Math.abs(t.y - p.y);
+      if (dy < bestDY) { bestDY = dy; bestY = t.y; }
+    }
+    return {
+      x: bestX != null ? bestX : p.x,
+      y: bestY != null ? bestY : p.y,
+      snapX: bestX != null,
+      snapY: bestY != null
+    };
+  }
+
+  // Full point/corner snap takes priority (exact match on both axes); if it
+  // doesn't hit, fall back to independent per-axis alignment snap and record
+  // the guide line(s) to draw. `activeGuide` is a render-time side effect --
+  // every interactive call to resolvePoint() refreshes it.
+  let activeGuide = { x: null, y: null };
+  function resolvePoint(raw, exclude) {
+    const full = applySnap(raw, exclude);
+    if (full.x !== raw.x || full.y !== raw.y) {
+      activeGuide = { x: null, y: null };
+      return { x: full.x, y: full.y };
+    }
+    const aligned = applyAlignSnap(raw, exclude);
+    activeGuide = { x: aligned.snapX ? aligned.x : null, y: aligned.snapY ? aligned.y : null };
+    return { x: aligned.x, y: aligned.y };
   }
 
   // If snapping is on and a target is within range, return it; else return p.
@@ -821,6 +954,14 @@
         }
       }
     }
+    for (const c of circles) {
+      const cs = toScreen(c.cx, c.cy);
+      let d = (cs.px - ms.px) ** 2 + (cs.py - ms.py) ** 2;
+      if (d <= bestD) { bestD = d; best = { circle: c, kind: "circle-center" }; }
+      const es = toScreen(c.cx + c.r, c.cy);
+      d = (es.px - ms.px) ** 2 + (es.py - ms.py) ** 2;
+      if (d <= bestD) { bestD = d; best = { circle: c, kind: "circle-edge" }; }
+    }
     return best;
   }
 
@@ -832,12 +973,112 @@
   let current = newPoly();
   polygons.push(current);
 
+  // Circles: [{cx, cy, r}], drawn/edited independently of the polygon list.
+  let circles = [];
+  let circleDraft = null;   // circle currently being dragged out in circle mode
+  let lastHover = null;     // last hitTest() result while hovering in edit mode (for Delete)
+
   // Bezier drag state
   let dragging = false;
   let dragPointIndex = -1;
   let mouse = null; // last known model-space mouse position
 
   function newPoly() { return { points: [], closed: false }; }
+
+  // --- Inline point editor (edit mode) --------------------------------------
+  // A click (mousedown+mouseup with negligible movement) on a point in edit
+  // mode opens a small floating X/Y box next to it so its coordinates can be
+  // typed exactly. Dragging still works as before -- dragMoved distinguishes
+  // the two at mouseup. `pointEditorTarget` reuses hitTest()'s shape:
+  // { poly, point, kind: "anchor"|"handle" } or { circle, kind: "circle-center"|"circle-edge" }.
+  let pointEditorTarget = null;
+  let mouseDownClient = null;
+  let dragMoved = false;
+  const CLICK_SLOP = 3; // px in client space; below this a mousedown/up pair counts as a click
+
+  function targetModelPos(t) {
+    if (!t) return null;
+    if (t.kind === "anchor") return { x: t.point.x, y: t.point.y };
+    if (t.kind === "handle") return { x: t.point.cx, y: t.point.cy };
+    if (t.kind === "circle-center") return { x: t.circle.cx, y: t.circle.cy };
+    if (t.kind === "circle-edge") return { x: t.circle.cx + t.circle.r, y: t.circle.cy };
+    return null;
+  }
+
+  function closePointEditor() {
+    pointEditorTarget = null;
+    pointEditor.style.display = "none";
+  }
+
+  function positionPointEditor() {
+    if (!pointEditorTarget) return;
+    const p = targetModelPos(pointEditorTarget);
+    if (!p) return;
+    const s = toScreen(p.x, p.y);
+    const canvasRect = canvas.getBoundingClientRect();
+    const wrapRect = canvas.parentElement.getBoundingClientRect();
+    const scaleX = canvasRect.width / canvas.width;
+    const scaleY = canvasRect.height / canvas.height;
+    const baseLeft = (canvasRect.left - wrapRect.left) + s.px * scaleX;
+    const baseTop = (canvasRect.top - wrapRect.top) + s.py * scaleY;
+    const editorW = pointEditor.offsetWidth || 160;
+    const editorH = pointEditor.offsetHeight || 32;
+    const putRight = s.px < SIZE * 0.65;
+    pointEditor.style.left = (putRight ? baseLeft + 14 : baseLeft - editorW - 14) + "px";
+    pointEditor.style.top = Math.max(4, baseTop - editorH / 2) + "px";
+  }
+
+  function refreshPointEditorFields() {
+    if (!pointEditorTarget) return;
+    const t = pointEditorTarget;
+    if (t.kind === "circle-edge") {
+      peX.value = fmt(t.circle.r);
+    } else {
+      const p = targetModelPos(t);
+      peX.value = fmt(p.x);
+      peY.value = fmt(p.y);
+    }
+  }
+
+  function openPointEditor(target) {
+    pointEditorTarget = target;
+    const isRadius = target.kind === "circle-edge";
+    peXLabel.textContent = isRadius ? "R" : "X";
+    peYWrap.style.display = isRadius ? "none" : "flex";
+    pointEditor.style.display = "flex";
+    refreshPointEditorFields();
+    positionPointEditor();
+    peX.focus();
+    peX.select();
+  }
+
+  function applyPointEditorInput() {
+    const t = pointEditorTarget;
+    if (!t) return;
+    const xv = parseFloat(peX.value);
+    if (t.kind === "circle-edge") {
+      if (Number.isNaN(xv)) return;
+      t.circle.r = Math.max(0.001, xv);
+    } else {
+      const yv = parseFloat(peY.value);
+      if (Number.isNaN(xv) || Number.isNaN(yv)) return;
+      if (t.kind === "anchor") { t.point.x = xv; t.point.y = yv; }
+      else if (t.kind === "handle") { t.point.cx = xv; t.point.cy = yv; }
+      else if (t.kind === "circle-center") { t.circle.cx = xv; t.circle.cy = yv; }
+    }
+    render();
+  }
+
+  peX.addEventListener("input", applyPointEditorInput);
+  peY.addEventListener("input", applyPointEditorInput);
+  [peX, peY].forEach(inp => {
+    inp.addEventListener("keydown", (e) => {
+      if (e.key === "Enter" || e.key === "Escape") {
+        e.preventDefault();
+        closePointEditor();
+      }
+    });
+  });
 
   // --- Drawing -------------------------------------------------------------
   function drawGrid() {
@@ -1016,8 +1257,9 @@
 
   function drawSnapIndicator() {
     if (mode === "edit") return;
+    if (mode === "circle" && circleDraft) return;
     if (!mouse || !snapToggle.checked) return;
-    const target = applySnap(clampToTriangle(mouse));
+    const target = applySnap(mouse);
     // Only show if an actual snap target (not the raw cursor) was found.
     if (target.x === mouse.x && target.y === mouse.y) return;
     const s = toScreen(target.x, target.y);
@@ -1031,15 +1273,15 @@
   }
 
   function drawPreview() {
-    if (mode === "edit") return;
-    if (!mouse || current.closed) return;
+    if (mode !== "draw") { activeGuide = { x: null, y: null }; return; }
+    if (!mouse || current.closed) { activeGuide = { x: null, y: null }; return; }
     const pts = current.points;
-    if (pts.length === 0) return;
+    if (pts.length === 0) { activeGuide = { x: null, y: null }; return; }
     const last = pts[pts.length - 1];
     const a = toScreen(last.x, last.y);
     // Preview line follows the snapped position so the student sees where
     // the point will actually land.
-    const target = applySnap(clampToTriangle(mouse));
+    const target = resolvePoint(mouse);
     const m = toScreen(target.x, target.y);
     ctx.save();
     ctx.setLineDash([5, 5]);
@@ -1052,13 +1294,60 @@
     ctx.restore();
   }
 
+  function drawCircles() {
+    for (const c of circles) {
+      const s = toScreen(c.cx, c.cy);
+      const rs = c.r / VIEW_SPAN * SPAN;
+      ctx.beginPath();
+      ctx.arc(s.px, s.py, rs, 0, Math.PI * 2);
+      ctx.fillStyle = "rgba(79,195,247,0.15)";
+      ctx.fill();
+      ctx.lineWidth = 2;
+      ctx.strokeStyle = getCSS("--line");
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.arc(s.px, s.py, 4, 0, Math.PI * 2);
+      ctx.fillStyle = getCSS("--point");
+      ctx.fill();
+      if (mode === "edit") {
+        const es = toScreen(c.cx + c.r, c.cy);
+        ctx.beginPath();
+        ctx.arc(es.px, es.py, 4, 0, Math.PI * 2);
+        ctx.fillStyle = getCSS("--bezier");
+        ctx.fill();
+      }
+    }
+  }
+
+  // Dashed lines showing the horizontal/vertical line the current point just
+  // aligned onto (see resolvePoint()).
+  function drawAlignGuides() {
+    if (activeGuide.x == null && activeGuide.y == null) return;
+    ctx.save();
+    ctx.setLineDash([6, 4]);
+    ctx.strokeStyle = getCSS("--bezier");
+    ctx.lineWidth = 1;
+    if (activeGuide.x != null) {
+      const a = toScreen(activeGuide.x, VIEW.ymin), b = toScreen(activeGuide.x, VIEW.ymax);
+      ctx.beginPath(); ctx.moveTo(a.px, a.py); ctx.lineTo(b.px, b.py); ctx.stroke();
+    }
+    if (activeGuide.y != null) {
+      const a = toScreen(VIEW.xmin, activeGuide.y), b = toScreen(VIEW.xmax, activeGuide.y);
+      ctx.beginPath(); ctx.moveTo(a.px, a.py); ctx.lineTo(b.px, b.py); ctx.stroke();
+    }
+    ctx.restore();
+  }
+
   function render() {
     drawGrid();
     for (const poly of polygons) {
       drawPolyPath(poly, poly === current);
     }
+    drawCircles();
     drawPreview();
     drawSnapIndicator();
+    drawAlignGuides();
+    positionPointEditor();
     updateOutput();
   }
 
@@ -1199,6 +1488,18 @@
           pctx.closePath();
           pctx.fill();
         }
+        const CIRCLE_SEG = 48;
+        for (const c of circles) {
+          pctx.beginPath();
+          for (let k = 0; k <= CIRCLE_SEG; k++) {
+            const ang = (k / CIRCLE_SEG) * Math.PI * 2;
+            const pt = { x: c.cx + c.r * Math.cos(ang), y: c.cy + c.r * Math.sin(ang) };
+            const s = P(T(pt));
+            if (k) pctx.lineTo(s.px, s.py); else pctx.moveTo(s.px, s.py);
+          }
+          pctx.closePath();
+          pctx.fill();
+        }
         pctx.restore();
       }
       pctx.restore();
@@ -1227,15 +1528,122 @@
 ]);`;
   }
 
-  function updateOutput() {
-    const blocks = [];
+  function circleBlock(c) {
+    return `translate([${fmt(c.cx)}, ${fmt(c.cy)}]) circle(r = ${fmt(c.r)}, $fn = 64);`;
+  }
 
+  // The shapes cut out of the fundamental domain -- shared by both output
+  // modes (pasted raw for "Cut shapes", embedded in FundamentalCut() for
+  // "Full panel").
+  function shapeBlocks() {
+    const blocks = [];
     for (const poly of polygons) {
       if (poly.points.length < 2) continue;
       blocks.push(polyBlock(expandPoly(poly)));
     }
+    for (const c of circles) {
+      blocks.push(circleBlock(c));
+    }
+    return blocks;
+  }
 
-    output.value = blocks.join("\n");
+  function indent(text, spaces) {
+    const pad = " ".repeat(spaces);
+    return text.split("\n").join("\n" + pad);
+  }
+
+  // A complete, ready-to-render .scad file: the fundamental domain, the
+  // user's cut, this group's symmetry instances (from instancesScad, built
+  // alongside the preview transforms in GROUPS -- see composeT() above),
+  // tiled across the lattice, and framed in the standard golden-triangle
+  // border (see Templates/GoldenTriangle_Blank_Template.scad). The frame
+  // formula is always the nested difference() -- FundamentalCut always cuts
+  // holes out of the domain, so CompiledTile is always a "background minus
+  // cutouts" tile, never scattered positive shapes.
+  function generateFullPanel() {
+    const cuts = shapeBlocks();
+    const cutBody = cuts.length ? indent(cuts.join("\n"), 4) : "// no shapes drawn yet";
+    const domainPts = TRI.map(v => `[${fmt(v.x)}, ${fmt(v.y)}]`).join(", ");
+    const [lat1, lat2] = G.lattice;
+    const scaleVal = parseFloat(scaleInput.value) || 30;
+    const tileLines = G.instancesScad.map(s =>
+      `        weld() ${s ? s + " " : ""}FundamentalRemains();`
+    ).join("\n");
+
+    return `// Auto-generated by OpenSCAD Wallpaper Pattern Editor
+// Wallpaper group: ${G.label}  (reference: ${G.file})
+
+$fn = 48;
+epsilon = 0.0001;
+
+module weld() { offset(delta = epsilon) children(); }
+
+module FundamentalDomain()
+{
+    polygon(points = [${domainPts}]);
+}
+
+module FundamentalCut()
+{
+    ${cutBody}
+}
+
+module FundamentalRemains()
+{
+    difference() { FundamentalDomain(); FundamentalCut(); }
+}
+
+module CompiledTile()
+{
+    union()
+    {
+${tileLines}
+    }
+}
+
+module PatternArray()
+{
+    for (i = [-10:1:10])
+        for (j = [-10:1:10])
+            translate([i*${fmt(lat1.x)} + j*${fmt(lat2.x)}, i*${fmt(lat1.y)} + j*${fmt(lat2.y)}, 0])
+                CompiledTile();
+}
+
+//----------------------------
+
+base = 150;
+phi = (1 + sqrt(5)) / 2;
+holeGap = 8;
+
+leftBase = [-base/2, 0];
+rightBase = [base/2, 0];
+side = phi * base;
+height = sqrt(side*side - (base/2)*(base/2));
+apex = [0, height];
+
+module GoldenTriangle()
+{
+    polygon(points = [leftBase, rightBase, apex]);
+}
+
+difference()
+{
+    GoldenTriangle();
+    difference()
+    {
+        offset(delta = -12) GoldenTriangle();
+        render() translate([0, 100, 0]) scale(${fmt(scaleVal)}) PatternArray();
+    }
+    translate([(-base/2)+holeGap*cos(36), holeGap*sin(36)]) circle(r = 2, $fn = 100);
+    translate([(base/2)-holeGap*cos(36), holeGap*sin(36)]) circle(r = 2, $fn = 100);
+    translate([0, height - holeGap * 2]) circle(r = 2, $fn = 100);
+    polygon(points = [[-10, 7], [10, 7], [10, 11], [-10, 11]]);
+}
+`;
+  }
+
+  function updateOutput() {
+    output.value = outputMode === "full" ? generateFullPanel() : shapeBlocks().join("\n\n");
     renderPreview();
   }
 
@@ -1262,11 +1670,24 @@
 
     if (mode === "edit") {
       const hit = hitTest(m);
+      mouseDownClient = { x: e.clientX, y: e.clientY };
+      dragMoved = false;
       if (hit) {
         editTarget = hit;
         canvas.style.cursor = "grabbing";
+      } else {
+        closePointEditor();
       }
       return;   // never add points in edit mode
+    }
+
+    if (mode === "circle") {
+      const c = resolvePoint(m);
+      circleDraft = { cx: c.x, cy: c.y, r: 0 };
+      circles.push(circleDraft);
+      setStatus();
+      render();
+      return;
     }
 
     // --- draw mode ---
@@ -1275,7 +1696,7 @@
     const pts = current.points;
     const useBezier = bezierToggle.checked && pts.length >= 1;
 
-    const cl = applySnap(clampToTriangle(m));
+    const cl = resolvePoint(m);
     const np = { x: cl.x, y: cl.y, cx: null, cy: null };
 
     if (useBezier) {
@@ -1300,22 +1721,48 @@
 
     if (mode === "edit") {
       if (editTarget) {
-        // Move the grabbed anchor or handle.
+        if (mouseDownClient) {
+          const dcx = e.clientX - mouseDownClient.x, dcy = e.clientY - mouseDownClient.y;
+          if (dcx * dcx + dcy * dcy > CLICK_SLOP * CLICK_SLOP) dragMoved = true;
+        }
+        // Move the grabbed anchor, handle, or circle. None of these are
+        // clamped to the domain any more -- cuts are allowed to bleed past
+        // its edges so tiled copies overlap at the seam instead of leaving
+        // a sliver gap when printed/cut.
         if (editTarget.kind === "anchor") {
-          // anchors stay in the domain and snap (excluding themselves)
-          const cl = applySnap(clampToTriangle(m), editTarget.point);
+          // anchors still snap to corners/points (excluding themselves)
+          const cl = resolvePoint(m, editTarget.point);
           editTarget.point.x = cl.x;
           editTarget.point.y = cl.y;
-        } else {
-          // control handle: clamp to domain, no snapping
-          const cl = clampToTriangle(m);
-          editTarget.point.cx = cl.x;
-          editTarget.point.cy = cl.y;
+        } else if (editTarget.kind === "handle") {
+          // control handle: no snapping
+          editTarget.point.cx = m.x;
+          editTarget.point.cy = m.y;
+        } else if (editTarget.kind === "circle-center") {
+          const cl = resolvePoint(m, editTarget.circle);
+          editTarget.circle.cx = cl.x;
+          editTarget.circle.cy = cl.y;
+        } else if (editTarget.kind === "circle-edge") {
+          activeGuide = { x: null, y: null };
+          editTarget.circle.r = Math.max(0.001,
+            Math.hypot(m.x - editTarget.circle.cx, m.y - editTarget.circle.cy));
         }
         canvas.style.cursor = "grabbing";
       } else {
         // hover feedback: show grab cursor when over a draggable target
-        canvas.style.cursor = hitTest(m) ? "grab" : "default";
+        activeGuide = { x: null, y: null };
+        const hover = hitTest(m);
+        lastHover = hover;
+        canvas.style.cursor = hover ? "grab" : "default";
+      }
+      render();
+      return;
+    }
+
+    if (mode === "circle") {
+      activeGuide = { x: null, y: null };
+      if (circleDraft) {
+        circleDraft.r = Math.max(0.001, Math.hypot(m.x - circleDraft.cx, m.y - circleDraft.cy));
       }
       render();
       return;
@@ -1323,12 +1770,9 @@
 
     // --- draw mode ---
     if (dragging && dragPointIndex >= 0) {
-      // clamp the control handle into the domain too; because the domain
-      // is convex, a quadratic with both anchors + control inside stays inside.
-      const cl = clampToTriangle(m);
       const p = current.points[dragPointIndex];
-      p.cx = cl.x;
-      p.cy = cl.y;
+      p.cx = m.x;
+      p.cy = m.y;
     }
     render();
   });
@@ -1336,8 +1780,25 @@
   window.addEventListener("mouseup", () => {
     if (mode === "edit") {
       if (editTarget) {
+        if (!dragMoved) {
+          openPointEditor(editTarget);
+        } else {
+          closePointEditor();
+        }
         editTarget = null;
+        activeGuide = { x: null, y: null };
         canvas.style.cursor = mouse && hitTest(mouse) ? "grab" : "default";
+        setStatus();
+        render();
+      }
+      mouseDownClient = null;
+      return;
+    }
+
+    if (mode === "circle") {
+      if (circleDraft) {
+        if (circleDraft.r < 0.01) circles.pop();
+        circleDraft = null;
         setStatus();
         render();
       }
@@ -1362,12 +1823,30 @@
 
   canvas.addEventListener("mouseleave", () => {
     mouse = null;
+    activeGuide = { x: null, y: null };
     readout.textContent = "( –, – )";
+    render();
+  });
+
+  // Delete/Backspace in edit mode removes the circle under the cursor
+  // (or the one currently grabbed). Ignored while typing in the output box.
+  window.addEventListener("keydown", (e) => {
+    if (document.activeElement === output || document.activeElement === peX || document.activeElement === peY) return;
+    if (mode !== "edit") return;
+    if (e.key !== "Delete" && e.key !== "Backspace") return;
+    const target = editTarget || lastHover;
+    if (!target || !target.circle) return;
+    circles = circles.filter(c => c !== target.circle);
+    if (pointEditorTarget && pointEditorTarget.circle === target.circle) closePointEditor();
+    editTarget = null;
+    lastHover = null;
+    setStatus();
     render();
   });
 
   // --- Buttons -------------------------------------------------------------
   document.getElementById("undoBtn").addEventListener("click", () => {
+    closePointEditor();
     if (current.points.length > 0) {
       current.closed = false;
       current.points.pop();
@@ -1375,6 +1854,8 @@
       polygons.pop();
       current = polygons[polygons.length - 1];
       current.closed = false;
+    } else if (circles.length > 0) {
+      circles.pop();
     }
     setStatus();
     render();
@@ -1400,7 +1881,9 @@
   });
 
   document.getElementById("clearBtn").addEventListener("click", () => {
+    closePointEditor();
     polygons = [];
+    circles = [];
     current = newPoly();
     polygons.push(current);
     setStatus("Cleared. Click to start drawing.");
@@ -1422,20 +1905,52 @@
     });
   });
 
+  downloadBtn.addEventListener("click", () => {
+    const blob = new Blob([output.value], { type: "text/plain" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${GROUP_KEY}_${outputMode === "full" ? "panel" : "cut"}.scad`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  });
+
+  outCutBtn.addEventListener("click", () => {
+    outputMode = "cut";
+    outCutBtn.classList.add("active");
+    outFullBtn.classList.remove("active");
+    updateOutput();
+  });
+  outFullBtn.addEventListener("click", () => {
+    outputMode = "full";
+    outFullBtn.classList.add("active");
+    outCutBtn.classList.remove("active");
+    updateOutput();
+  });
+
   function setMode(next) {
     mode = next;
-    const editing = mode === "edit";
-    editModeBtn.classList.toggle("active", editing);
-    drawModeBtn.classList.toggle("active", !editing);
+    drawModeBtn.classList.toggle("active", mode === "draw");
+    circleModeBtn.classList.toggle("active", mode === "circle");
+    editModeBtn.classList.toggle("active", mode === "edit");
     editTarget = null;
-    canvas.style.cursor = editing ? "default" : "crosshair";
-    // bezier/seg controls only meaningful while drawing
-    setStatus(editing
-      ? "Edit mode: drag any point or Bézier handle. Anchors snap to corners/points."
-      : "Draw mode: click to place points.");
+    circleDraft = null;
+    closePointEditor();
+    activeGuide = { x: null, y: null };
+    canvas.style.cursor = mode === "edit" ? "default" : "crosshair";
+    setStatus(
+      mode === "edit"
+        ? "Edit mode: drag any point, Bézier handle, or circle. Hover a circle and press Delete to remove it."
+        : mode === "circle"
+        ? "Circle mode: click and drag from the center out to the edge."
+        : "Draw mode: click to place points."
+    );
     render();
   }
   drawModeBtn.addEventListener("click", () => setMode("draw"));
+  circleModeBtn.addEventListener("click", () => setMode("circle"));
   editModeBtn.addEventListener("click", () => setMode("edit"));
 
   previewToggle.addEventListener("click", () => {
@@ -1446,6 +1961,7 @@
   });
 
   segInput.addEventListener("change", render);
+  scaleInput.addEventListener("change", render);
   bezierToggle.addEventListener("change", () => {
     setStatus(bezierToggle.checked
       ? "Bézier on: click then drag to curve the segment."
@@ -1455,6 +1971,12 @@
     setStatus(snapToggle.checked
       ? "Snapping on: points lock to corners and existing points."
       : "Snapping off.");
+    render();
+  });
+  alignToggle.addEventListener("change", () => {
+    setStatus(alignToggle.checked
+      ? "Alignment guides on: points snap onto other points' horizontal/vertical lines."
+      : "Alignment guides off.");
     render();
   });
 
@@ -1468,6 +1990,8 @@
     TRI = G.domain;
     computeView();
     polygons = [];
+    circles = [];
+    circleDraft = null;
     current = newPoly();
     polygons.push(current);
     mode = "draw";
@@ -1483,7 +2007,7 @@
     const polyCount = polygons.filter(p => p.points.length >= 2).length;
     status.innerHTML =
       `Current polygon: <b>${n}</b> point${n === 1 ? "" : "s"} · ` +
-      `Total polygons: <b>${polyCount}</b>`;
+      `Polygons: <b>${polyCount}</b> · Circles: <b>${circles.length}</b>`;
   }
 
   // init
