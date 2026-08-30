@@ -146,7 +146,7 @@ difference()
     difference()
     {
         offset(delta = -12) GoldenTriangle();
-        render() translate([0, 100, 0]) scale(30) PatternArray();
+        render() translate([0, 100, 0]) scale(50) PatternArray();
     }
     translate([(-base/2)+holeGap*cos(36), holeGap*sin(36)]) circle(r = 2, $fn = 100);
     translate([(base/2)-holeGap*cos(36), holeGap*sin(36)]) circle(r = 2, $fn = 100);
