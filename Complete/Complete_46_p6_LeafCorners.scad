@@ -69,13 +69,23 @@ module LeafSilhouette()
     ]);
 }
 
+// Fundamental domain corners -- a leaf inset from each one.
+vertexA = [.25, sqrt(3)/12];
+vertexB = [-.25, sqrt(3)/4];
+vertexC = [.75, sqrt(3)/4];
+centroid = (vertexA + vertexB + vertexC) / 3;
+insetFrac = 0.4;
+leafScale = 0.18;
+
 module shapesToCut()
 {
-    translate([0.25, 0.29]) scale(0.3) LeafSilhouette();
+    translate(vertexA + insetFrac*(centroid - vertexA)) scale(leafScale) LeafSilhouette();
+    translate(vertexB + insetFrac*(centroid - vertexB)) scale(leafScale) LeafSilhouette();
+    translate(vertexC + insetFrac*(centroid - vertexC)) scale(leafScale) LeafSilhouette();
 }
 module fundamentalDomain()
 {
-    polygon(points = [[.25,sqrt(3)/12], [-.25, sqrt(3)/4], [.75, sqrt(3)/4]]);
+    polygon(points = [vertexA, vertexB, vertexC]);
 }
 module cutFundamental()
 {
@@ -102,20 +112,44 @@ module parallelogram()
         rotate(180) equilateralTriangle();
     }
 }
-gridStart= -5;
-gridEnd = -gridStart;
-module tileThePlane()
+
+module PatternArray()
 {
     weld()
     {
-        for ( y = [gridStart:1:gridEnd])
-        {
-                    for ( x = [gridStart:1:gridEnd])
-                    {translate([x, y*(sqrt(3)/2),0])parallelogram();
-                    }
-                }
-            }
-        }
-tileThePlane();
+        for (y = [-10:1:10])
+            for (x = [-10:1:10])
+                translate([x, y*(sqrt(3)/2), 0]) parallelogram();
+    }
+}
 
-color("green")cutFundamental();
+//----------------------------
+
+base = 150;
+phi = (1 + sqrt(5)) / 2;
+holeGap = 8;
+
+leftBase = [-base/2, 0];
+rightBase = [base/2, 0];
+side = phi * base;
+height = sqrt(side*side - (base/2)*(base/2));
+apex = [0, height];
+
+module GoldenTriangle()
+{
+    polygon(points = [leftBase, rightBase, apex]);
+}
+
+difference()
+{
+    GoldenTriangle();
+    difference()
+    {
+        offset(delta = -12) GoldenTriangle();
+        render() translate([0, 100, 0]) scale(30) PatternArray();
+    }
+    translate([(-base/2)+holeGap*cos(36), holeGap*sin(36)]) circle(r = 2, $fn = 100);
+    translate([(base/2)-holeGap*cos(36), holeGap*sin(36)]) circle(r = 2, $fn = 100);
+    translate([0, height - holeGap * 2]) circle(r = 2, $fn = 100);
+    polygon(points = [[-10, 7], [10, 7], [10, 11], [-10, 11]]);
+}
