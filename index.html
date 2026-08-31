@@ -285,6 +285,43 @@
     border-top: 1px solid var(--grid);
     background: var(--panel-light);
   }
+  .points-input {
+    flex: 0 0 auto;
+    border-top: 1px solid var(--grid);
+    background: var(--panel-light);
+    padding: 10px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .points-input-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 13px;
+    font-weight: 600;
+  }
+  #pointsInput {
+    flex: 0 0 auto;
+    height: 84px;
+    background: #1a1d23;
+    color: #d4d4d4;
+    border: 1px solid var(--grid);
+    border-radius: 6px;
+    padding: 8px 10px;
+    font-family: "SF Mono", Menlo, Consolas, monospace;
+    font-size: 12px;
+    line-height: 1.5;
+    resize: vertical;
+    outline: none;
+    white-space: pre;
+  }
+  #pointsInput:focus { border-color: var(--accent); }
+  .points-input .hint {
+    font-size: 11px;
+    color: var(--text-dim);
+    font-family: "SF Mono", Menlo, Consolas, monospace;
+  }
   .status b { color: var(--accent); }
   .seg-control {
     display: flex;
@@ -382,6 +419,14 @@
       </div>
     </div>
     <textarea id="output" readonly spellcheck="false"></textarea>
+    <div class="points-input">
+      <div class="points-input-head">
+        <span>Polygon points</span>
+        <button id="drawPointsBtn" class="primary">Draw</button>
+      </div>
+      <textarea id="pointsInput" spellcheck="false" placeholder="[0, 0], [1, 0], [0.5, 1]"></textarea>
+      <div class="hint">Paste [x, y] pairs or one "x y" per line, then press Draw.</div>
+    </div>
     <div class="status" id="status">Click inside the domain to place your first point.</div>
   </div>
 </main>
@@ -406,6 +451,8 @@
   const outCutBtn = document.getElementById("outCutBtn");
   const outFullBtn = document.getElementById("outFullBtn");
   const downloadBtn = document.getElementById("downloadBtn");
+  const pointsInput = document.getElementById("pointsInput");
+  const drawPointsBtn = document.getElementById("drawPointsBtn");
   const previewPanel = document.getElementById("previewPanel");
   const previewCanvas = document.getElementById("previewCanvas");
   const pctx = previewCanvas.getContext("2d");
@@ -1831,7 +1878,7 @@ difference()
   // Delete/Backspace in edit mode removes the circle under the cursor
   // (or the one currently grabbed). Ignored while typing in the output box.
   window.addEventListener("keydown", (e) => {
-    if (document.activeElement === output || document.activeElement === peX || document.activeElement === peY) return;
+    if (document.activeElement === output || document.activeElement === peX || document.activeElement === peY || document.activeElement === pointsInput) return;
     if (mode !== "edit") return;
     if (e.key !== "Delete" && e.key !== "Backspace") return;
     const target = editTarget || lastHover;
@@ -1888,6 +1935,40 @@ difference()
     polygons.push(current);
     setStatus("Cleared. Click to start drawing.");
     render();
+  });
+
+  // --- Draw polygon from typed points ------------------------------------
+  // Accepts anything with numbers in reading order: "[0,0], [1,0], [0.5,1]",
+  // OpenSCAD polygon() point lists, or one "x y" / "x, y" pair per line.
+  function parsePointsInput(text) {
+    const nums = (text.match(/-?\d*\.?\d+(?:[eE][-+]?\d+)?/g) || []).map(Number);
+    const pts = [];
+    for (let i = 0; i + 1 < nums.length; i += 2) {
+      pts.push({ x: nums[i], y: nums[i + 1], cx: null, cy: null });
+    }
+    return pts;
+  }
+
+  drawPointsBtn.addEventListener("click", () => {
+    const pts = parsePointsInput(pointsInput.value);
+    if (pts.length < 2) {
+      setStatus("Enter at least 2 points, e.g. <b>[0, 0], [1, 0], [0.5, 1]</b>.");
+      return;
+    }
+    closePointEditor();
+    const poly = { points: pts, closed: pts.length >= 3 };
+    polygons.push(poly);
+    current = newPoly();
+    polygons.push(current);
+    setStatus(`Drew polygon with <b>${pts.length}</b> point${pts.length === 1 ? "" : "s"} from input.`);
+    render();
+  });
+
+  pointsInput.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) {
+      e.preventDefault();
+      drawPointsBtn.click();
+    }
   });
 
   const copyBtn = document.getElementById("copyBtn");
