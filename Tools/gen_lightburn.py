@@ -10,9 +10,9 @@ wrapped in a single Group so the triangle moves/selects as one object.
 Placement (translate / rotate 180) is read back out of the Sheet_NN.scad
 files, so the layout stays the single source of truth.
 
-Usage: python Tools/gen_lightburn.py
+Usage: python Tools/gen_lightburn.py [--dir Nested/Batch_02]
 """
-import os, re, glob, math
+import os, re, glob, math, argparse
 from xml.sax.saxutils import quoteattr
 
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -133,7 +133,10 @@ def transform(pts, tx, ty, flip180):
 
 
 def main():
-    scads = sorted(glob.glob(os.path.join(OUT_DIR, "Sheet_*.scad")))
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--dir", default=OUT_DIR, help="directory holding Sheet_NN.scad")
+    out_dir = os.path.abspath(ap.parse_args().dir)
+    scads = sorted(glob.glob(os.path.join(out_dir, "Sheet_*.scad")))
     for scad in scads:
         name = os.path.splitext(os.path.basename(scad))[0]
         shapes, stats = [], []
@@ -154,7 +157,7 @@ def main():
                '    </CutSetting>\n'
                + "".join(shapes) +
                '</LightBurnProject>\n')
-        out = os.path.join(OUT_DIR, name + ".lbrn2")
+        out = os.path.join(out_dir, name + ".lbrn2")
         with open(out, "w", encoding="utf-8", newline="\n") as f:
             f.write(xml)
         open_chains = [s for s in stats if s[2]]

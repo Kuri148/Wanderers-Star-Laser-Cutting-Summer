@@ -3,14 +3,31 @@
 nesting sheets (alternating up/down orientation, evenly gapped) sized to
 fit a laser bed, spilling into additional sheets as needed.
 
-Usage: python Tools/gen_nested_sheets.py
+Usage: python Tools/gen_nested_sheets.py [--exclude 1-7,14,33] [--out Nested/Batch_02]
+  --exclude  panel numbers to leave out (e.g. ones already cut)
+  --out      output directory (default: Nested/)
 """
-import os, re, glob, math, subprocess, sys
+import os, re, glob, math, subprocess, sys, argparse
 
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 OSCAD = os.environ.get("OPENSCAD", r"C:\Program Files (x86)\OpenSCAD\openscad.exe")
 DXF_DIR = os.path.join(REPO, "DXF")
-OUT_DIR = os.path.join(REPO, "Nested")
+
+
+def parse_ranges(spec):
+    nums = set()
+    for part in filter(None, (p.strip() for p in spec.split(","))):
+        a, _, b = part.partition("-")
+        nums.update(range(int(a), int(b or a) + 1))
+    return nums
+
+
+ap = argparse.ArgumentParser()
+ap.add_argument("--exclude", default="", help="panel numbers to skip, e.g. 1-7,14-20,33")
+ap.add_argument("--out", default=os.path.join(REPO, "Nested"), help="output directory")
+args = ap.parse_args()
+EXCLUDE = parse_ranges(args.exclude)
+OUT_DIR = os.path.abspath(args.out)
 os.makedirs(OUT_DIR, exist_ok=True)
 
 # Golden-triangle geometry (must match GoldenTriangle_Blank_Template.scad)
@@ -50,8 +67,12 @@ ROWS = fit_count(HEIGHT, ROW_PITCH, USABLE_H)
 COLS = fit_count(BASE, COL_PITCH, USABLE_W)
 PER_SHEET = ROWS * COLS
 
-files = sorted(glob.glob(os.path.join(DXF_DIR, "Complete_*.dxf")),
-               key=lambda p: int(re.match(r"Complete_(\d+)", os.path.basename(p)).group(1)))
+def panel_num(p):
+    return int(re.match(r"Complete_(\d+)", os.path.basename(p)).group(1))
+
+
+files = sorted(glob.glob(os.path.join(DXF_DIR, "Complete_*.dxf")), key=panel_num)
+files = [p for p in files if panel_num(p) not in EXCLUDE]
 
 print(f"triangle base={BASE} height={HEIGHT:.2f}")
 print(f"sheet usable {USABLE_W}x{USABLE_H} -> {COLS} cols x {ROWS} rows = {PER_SHEET}/sheet")
