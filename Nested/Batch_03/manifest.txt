@@ -1,0 +1,15 @@
+Golden-triangle nesting manifest -- stock 1200x600mm, 20mm edge padding, 3mm inter-panel gap, 13 cols x 2 rows = 26 panels/sheet
+
+sheet 01  row 0  col  0  up    Complete_44_p4_FourDice.dxf
+sheet 01  row 0  col  1  down  Complete_45_pmg_PointAndPierce.dxf
+sheet 01  row 0  col  2  up    Complete_46_p6_LeafCorners.dxf
+sheet 01  row 0  col  3  down  Complete_47_p31m_IDontKnowMan.dxf
+sheet 01  row 0  col  4  up    Complete_48_p3_SixtySeven.dxf
+sheet 01  row 0  col  5  down  Complete_49_pmg_EmptyReverseWriting.dxf
+sheet 01  row 0  col  6  up    Complete_50_pgg_FingerSquares.dxf
+sheet 01  row 0  col  7  down  Complete_51_p4g_HollyStar.dxf
+sheet 01  row 0  col  8  up    Complete_52_p4m_InvisibleIntersection.dxf
+sheet 01  row 0  col  9  down  Complete_53_cmm_ParenthesisDiamond.dxf
+sheet 01  row 0  col 10  up    Complete_54_cm_ScaleShells.dxf
+sheet 01  row 0  col 11  down  Complete_55_p6m_SixFoldTriMesh.dxf
+sheet 01  row 0  col 12  up    Complete_56_p3m1_TriDiamondMesh.dxf
