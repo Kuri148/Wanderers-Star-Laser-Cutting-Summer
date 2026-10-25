@@ -2,8 +2,11 @@
 
 #define LED_PIN  18
 #define NUM_LEDS 36
+#define HALF_PERIOD_MS 5000   // time to go from off to full, or full to off
 
 Adafruit_NeoPixel strip(NUM_LEDS, LED_PIN, NEO_GRB + NEO_KHZ800);
+
+
 
 void setup() {
   strip.begin();
